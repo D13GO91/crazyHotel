@@ -1,0 +1,273 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+:root {
+  --font-sans: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Color Palette - Luxury Black & Gold Theme */
+  --bg-space: #08070b;
+  --bg-nebula: radial-gradient(circle at 50% 50%, #1e1a12 0%, #08070b 100%);
+  --bg-glass: rgba(20, 19, 24, 0.7);
+  --bg-glass-hover: rgba(28, 27, 33, 0.85);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-focus: rgba(212, 175, 55, 0.5);
+  
+  --text-light: #f3f4f6;
+  --text-normal: #c5c7ca;
+  --text-muted: #8e9094;
+  --text-dark: #4b5563;
+
+  /* Accents - Gold & Champagne */
+  --accent: #d4af37;
+  --accent-light: #ffd700;
+  --accent-glow: rgba(212, 175, 55, 0.35);
+  --accent-rgb: 212, 175, 55;
+  
+  /* Role: Hóspede (Guest) - Emerald Theme */
+  --color-guest: #10b981;
+  --color-guest-glow: rgba(16, 185, 129, 0.4);
+  --bg-guest-glass: rgba(16, 185, 129, 0.05);
+  --border-guest: rgba(16, 185, 129, 0.25);
+
+  /* Role: Ladrão (Thief) - Crimson/Rose Theme */
+  --color-thief: #f43f5e;
+  --color-thief-glow: rgba(244, 63, 94, 0.4);
+  --bg-thief-glass: rgba(244, 63, 94, 0.05);
+  --border-thief: rgba(244, 63, 94, 0.25);
+
+  /* Shadows and Transitions */
+  --shadow-neon: 0 0 15px var(--accent-glow);
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+  --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-spring: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-space);
+  background-image: var(--bg-nebula);
+  background-attachment: fixed;
+  color: var(--text-normal);
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  overflow-x: hidden;
+  line-height: 1.5;
+}
+
+#root {
+  width: 100%;
+  max-width: 1200px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 1rem;
+}
+
+/* Glassmorphism Styles */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-glass);
+  border-radius: 1.25rem;
+  padding: 2rem;
+  box-shadow: var(--shadow-glass);
+  transition: var(--transition-smooth);
+}
+
+.glass-panel-hover:hover {
+  transform: translateY(-4px);
+  border-color: var(--border-glass-focus);
+  box-shadow: var(--shadow-glass), var(--shadow-neon);
+}
+
+/* Inputs and Buttons */
+.glass-input {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-glass);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1.25rem;
+  color: var(--text-light);
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  outline: none;
+  transition: var(--transition-smooth);
+  width: 100%;
+  text-align: center;
+}
+
+.glass-input::placeholder {
+  color: var(--text-muted);
+}
+
+.glass-input:focus {
+  border-color: var(--accent-light);
+  box-shadow: 0 0 10px rgba(192, 132, 252, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent) 0%, #9a7611 100%);
+  border: none;
+  border-radius: 0.75rem;
+  padding: 0.875rem 1.75rem;
+  color: var(--text-light);
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 15px rgba(var(--accent-rgb), 0.3);
+  transition: var(--transition-spring);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.btn-primary:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(var(--accent-rgb), 0.5), var(--shadow-neon);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-glass);
+  border-radius: 0.75rem;
+  padding: 0.875rem 1.75rem;
+  color: var(--text-light);
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: var(--text-muted);
+}
+
+/* Animations */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes pulse-glow {
+  0% { box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2); }
+  50% { box-shadow: 0 0 25px rgba(var(--accent-rgb), 0.5); }
+  100% { box-shadow: 0 0 10px rgba(var(--accent-rgb), 0.2); }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-2deg); }
+  75% { transform: rotate(2deg); }
+}
+
+@keyframes reveal-card {
+  from {
+    transform: perspective(1000px) rotateY(180deg);
+    opacity: 0;
+  }
+  to {
+    transform: perspective(1000px) rotateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s infinite;
+}
+
+.animate-wiggle {
+  animation: wiggle 0.5s ease-in-out infinite alternate;
+}
+
+.animate-reveal {
+  animation: reveal-card 0.6s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+}
+
+/* Responsive Grid/Flex Utilities */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-grow: 1;
+  width: 100%;
+  position: relative;
+}
+
+.layout-card {
+  max-width: 480px;
+  width: 100%;
+  margin: auto;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Typography styles */
+h1 {
+  font-size: 2.75rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 0%, #b5a7db 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: -0.05em;
+  margin-bottom: 0.5rem;
+}
+
+h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-light);
+  margin-bottom: 1rem;
+}
+
+p {
+  color: var(--text-muted);
+}
+
+.role-guest-theme {
+  color: var(--color-guest);
+  text-shadow: 0 0 10px var(--color-guest-glow);
+}
+
+.role-thief-theme {
+  color: var(--color-thief);
+  text-shadow: 0 0 10px var(--color-thief-glow);
+}
