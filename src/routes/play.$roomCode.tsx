@@ -39,15 +39,20 @@ export default function PlayRoom() {
       if (room?.state === 'TEAM_SELECTION') {
         setSelectedPlayers([]);
       }
-      if (room?.state === 'TEAM_VOTE') {
-        setHasVotedTeam(false);
-      }
-      if (room?.state === 'MISSION_VOTE') {
-        setHasVotedMissionState(false);
-      }
     }, 0);
     return () => clearTimeout(timeoutId);
   }, [room?.state]);
+
+  // Sincroniza estados de voto locais com o banco de dados
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (currentPlayer) {
+      setHasVotedTeam(!!currentPlayer.team_vote);
+      setHasVotedMissionState(currentPlayer.has_voted_mission);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPlayer?.team_vote, currentPlayer?.has_voted_mission]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleTogglePlayerSelection = (playerId: string) => {
     const activePlayers = players.filter(p => !p.is_host);

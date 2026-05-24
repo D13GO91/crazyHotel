@@ -21,6 +21,7 @@ interface GameContextProps {
   nextRound: () => Promise<void>;
   restartGame: () => Promise<void>;
   clearGame: () => void;
+  clearReactState: () => void;
   loadRoomData: (code: string, isHostPage: boolean) => Promise<void>;
 }
 
@@ -69,6 +70,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     localStorage.removeItem('crazyhotel_player_id');
     localStorage.removeItem('crazyhotel_room_id');
+    localStorage.removeItem('crazyhotel_room_code');
+  }, []);
+
+  // Limpa apenas os estados em memória (React state)
+  const clearReactState = useCallback(() => {
+    setRoom(null);
+    setPlayers([]);
+    setCurrentPlayer(null);
+    setError(null);
   }, []);
 
   // Busca inicial dos dados da sala e jogadores
@@ -116,6 +126,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .single();
 
           if (!playerExistError && playerExist) {
+            localStorage.setItem('crazyhotel_room_code', roomData.code);
             if (playerExist.status !== 'CONNECTED') {
               const { data: updated } = await supabase
                 .from('players')
@@ -136,6 +147,40 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     }
   }, []);
+
+  // Adiciona listener para marcar status do jogador como DISCONNECTED ao fechar a aba/janela
+  useEffect(() => {
+    if (!currentPlayer) return;
+
+    const handleUnload = () => {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+      const supabaseAnonKey = 
+        import.meta.env.VITE_SUPABASE_ANON_KEY || 
+        import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || 
+        '';
+      
+      if (!supabaseUrl || !supabaseAnonKey) return;
+
+      const url = `${supabaseUrl}/rest/v1/players?id=eq.${currentPlayer.id}`;
+      
+      fetch(url, {
+        method: 'PATCH',
+        headers: {
+          'apikey': supabaseAnonKey,
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({ status: 'DISCONNECTED' }),
+        keepalive: true
+      });
+    };
+
+    window.addEventListener('beforeunload', handleUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleUnload);
+    };
+  }, [currentPlayer]);
 
   // Assinatura em Tempo Real (Realtime Channels)
   useEffect(() => {
@@ -229,6 +274,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .single();
 
       if (roomError || !roomData) throw new Error('Sala não encontrada. Verifique o código.');
+
+      // Verifica se o jogador já está na sala (pelo nome) para permitir reconexão
+      const { data: existingPlayer } = await supabase
+        .from('players')
+        .select('*')
+        .eq('room_id', roomData.id)
+        .eq('name', playerName.trim())
+        .maybeSingle();
+
+      if (existingPlayer) {
+        // Reclama o jogador existente (reconexão)
+        const { data: updatedPlayer, error: updateError } = await supabase
+          .from('players')
+          .update({ status: 'CONNECTED' })
+          .eq('id', existingPlayer.id)
+          .select()
+          .single();
+
+        if (updateError || !updatedPlayer) {
+          throw new Error('Erro ao tentar reconectar como este jogador.');
+        }
+
+        localStorage.setItem('crazyhotel_player_id', updatedPlayer.id);
+        localStorage.setItem('crazyhotel_room_id', roomData.id);
+        localStorage.setItem('crazyhotel_room_code', roomData.code);
+
+        setRoom(roomData as Room);
+        setCurrentPlayer(updatedPlayer as Player);
+        return;
+      }
+
+      // Se é um jogador novo, aplicamos as regras de entrada de novos jogadores
       if (roomData.state !== 'LOBBY') throw new Error('O jogo nesta sala já foi iniciado!');
 
       const { count } = await supabase
@@ -239,17 +316,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const maxPlayers = roomData.settings?.maxPlayers || 10;
       if (count && count >= maxPlayers) {
         throw new Error('Esta sala já atingiu o limite máximo de jogadores.');
-      }
-
-      const { data: duplicateName } = await supabase
-        .from('players')
-        .select('id')
-        .eq('room_id', roomData.id)
-        .eq('name', playerName.trim())
-        .maybeSingle();
-
-      if (duplicateName) {
-        throw new Error('Já existe um jogador com este nome na sala.');
       }
 
       const { data: playerData, error: joinError } = await supabase
@@ -269,6 +335,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       localStorage.setItem('crazyhotel_player_id', playerData.id);
       localStorage.setItem('crazyhotel_room_id', roomData.id);
+      localStorage.setItem('crazyhotel_room_code', roomData.code);
 
       setRoom(roomData as Room);
       setCurrentPlayer(playerData as Player);
@@ -471,6 +538,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // AÇÃO: Enviar voto de missão secreto (Player)
   const submitMissionVote = useCallback(async (vote: 'SUCCESS' | 'FAIL') => {
     if (!room || !currentPlayer) return;
+    if (currentPlayer.has_voted_mission) return;
+
+    // Atualiza o estado local temporariamente/imediatamente para evitar duplo clique
+    setCurrentPlayer(prev => prev ? { ...prev, has_voted_mission: true } : null);
+
     try {
       // Chama a RPC atômica e anônima no banco
       await supabase.rpc('append_mission_vote', {
@@ -479,6 +551,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         p_vote: vote
       });
     } catch (err: unknown) {
+      // Se der erro, desfaz a alteração local
+      setCurrentPlayer(prev => prev ? { ...prev, has_voted_mission: false } : null);
       setError(err instanceof Error ? err.message : 'Erro ao enviar voto de missão.');
     }
   }, [room, currentPlayer]);
@@ -628,6 +702,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         nextRound,
         restartGame,
         clearGame,
+        clearReactState,
         loadRoomData,
       }}
     >

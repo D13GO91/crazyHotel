@@ -75,7 +75,18 @@ end $$;
 -- 4. Função RPC para registrar voto de missão de forma atômica e anônima
 create or replace function append_mission_vote(p_room_id uuid, p_player_id uuid, p_vote text)
 returns void as $$
+declare
+  v_already_voted boolean;
 begin
+  -- Verifica se o jogador já votou
+  select has_voted_mission into v_already_voted
+  from players
+  where id = p_player_id;
+
+  if v_already_voted then
+    return;
+  end if;
+
   -- Marca o jogador como tendo votado
   update players 
   set has_voted_mission = true 

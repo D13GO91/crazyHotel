@@ -8,18 +8,37 @@ import { Users, Tv, ShieldAlert } from 'lucide-react';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { createRoom, joinRoom, error: gameError, clearGame } = useGame();
+  const { createRoom, joinRoom, error: gameError, clearGame, clearReactState } = useGame();
   
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [playerNameInput, setPlayerNameInput] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [activeSession, setActiveSession] = useState<{ playerId: string; roomCode: string } | null>(() => {
+    const storedPlayerId = localStorage.getItem('crazyhotel_player_id');
+    const storedRoomCode = localStorage.getItem('crazyhotel_room_code');
+    if (storedPlayerId && storedRoomCode) {
+      return { playerId: storedPlayerId, roomCode: storedRoomCode };
+    }
+    return null;
+  });
 
-  // Clear previous game state when entering home
+  // Limpa o estado local de memória mas preserva o localStorage
   React.useEffect(() => {
+    clearReactState();
+  }, [clearReactState]);
+
+  const handleReconnect = () => {
+    if (activeSession) {
+      navigate({ to: '/play/$roomCode', params: { roomCode: activeSession.roomCode } });
+    }
+  };
+
+  const handleAbandonSession = () => {
     clearGame();
-  }, [clearGame]);
+    setActiveSession(null);
+  };
 
   const handleCreateRoom = async () => {
     setIsCreating(true);
@@ -79,6 +98,36 @@ export default function Home() {
         </div>
         <p style={{ fontSize: '1.125rem' }}>Um jogo de intriga, sabotagem e dedução social.</p>
       </div>
+
+      {activeSession && (
+        <GlassPanel 
+          style={{ 
+            marginBottom: '2rem', 
+            border: '1px solid rgba(var(--accent-rgb), 0.3)', 
+            background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.15) 0%, rgba(var(--color-guest-rgb), 0.05) 100%)',
+            padding: '1.25rem',
+            borderRadius: '1rem',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.2)'
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ fontWeight: 'bold', color: 'var(--accent-light)', fontSize: '1.1rem' }}>
+              Você tem uma partida em andamento!
+            </div>
+            <div style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}>
+              Identificamos uma conexão ativa na sala <strong style={{ color: '#fff', fontSize: '1.1rem', letterSpacing: '0.05em' }}>{activeSession.roomCode}</strong>.
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', width: '100%', marginTop: '0.25rem' }}>
+              <Button onClick={handleReconnect} style={{ flex: 2 }}>
+                Reconectar à Sala
+              </Button>
+              <Button onClick={handleAbandonSession} variant="secondary" style={{ flex: 1, border: '1px solid rgba(244, 63, 94, 0.4)', color: 'var(--color-thief)' }}>
+                Abandonar
+              </Button>
+            </div>
+          </div>
+        </GlassPanel>
+      )}
 
       <GlassPanel hoverable style={{ marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
