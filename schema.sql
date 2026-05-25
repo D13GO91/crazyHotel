@@ -2,8 +2,11 @@
 -- Rode este script no Editor SQL do seu projeto Supabase
 
 -- Limpa as tabelas caso já existam (útil para recomeçar o banco)
--- Removemos a constraint primeiro para evitar erros de drop
+-- Removemos as tabelas dependentes primeiro na ordem correta
 alter table if exists rooms drop constraint if exists fk_rooms_leader;
+drop table if exists messages;
+drop table if exists player_roles;
+drop table if exists player_secrets;
 drop table if exists players;
 drop table if exists rooms;
 
@@ -30,7 +33,6 @@ create table players (
   room_id uuid not null references rooms(id) on delete cascade,
   name varchar(100) not null,
   is_host boolean not null default false,
-  role varchar(50), -- 'GUEST' (Hóspede), 'THIEF' (Ladrão), ou NULL antes do início
   is_alive boolean not null default true, -- Não usado no Resistance, mas mantido por compatibilidade
   score integer not null default 0,
   team_vote varchar(50), -- Voto para a equipe: 'APPROVE', 'REJECT', ou NULL
@@ -45,11 +47,17 @@ alter table rooms add constraint fk_rooms_leader foreign key (leader_id) referen
 -- Índices para otimizar buscas
 create index idx_players_room_id on players(room_id);
 
--- Desativar RLS (Row Level Security) para simplificar a conexão anônima do jogo
-alter table rooms disable row level security;
-alter table players disable row level security;
+-- 3. Habilitar Row Level Security (RLS) e Criar Políticas de Acesso
+alter table rooms enable row level security;
+alter table players enable row level security;
 
--- 3. Habilitar Supabase Realtime para as duas tabelas
+-- Políticas para salas (Rooms)
+create policy "Permitir tudo em salas" on rooms for all using (true);
+
+-- Políticas para jogadores (Players)
+create policy "Permitir tudo em jogadores" on players for all using (true);
+
+-- 4. Habilitar Supabase Realtime para as tabelas principais
 do $$
 begin
   if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
@@ -72,7 +80,26 @@ exception when duplicate_object then
   -- Silencia erro caso a tabela já esteja na publicação
 end $$;
 
--- 4. Função RPC para registrar voto de missão de forma atômica e anônima
+-- 5. Tabelas Privadas de Segurança (Com RLS estrito e sem políticas de SELECT público)
+
+-- Tabela para papéis secretos
+create table player_roles (
+  player_id uuid primary key references players(id) on delete cascade,
+  role varchar(50) not null -- 'GUEST' ou 'THIEF'
+);
+alter table player_roles enable row level security;
+create policy "Permitir inserção de papéis" on player_roles for insert with check (true);
+create policy "Permitir remoção de papéis" on player_roles for delete using (true);
+
+-- Tabela para tokens secretos dos jogadores (apenas o cliente sabe seu próprio token)
+create table player_secrets (
+  player_id uuid primary key references players(id) on delete cascade,
+  secret_token uuid not null default gen_random_uuid()
+);
+alter table player_secrets enable row level security;
+create policy "Permitir inserção de segredos" on player_secrets for insert with check (true);
+
+-- 6. Função RPC para registrar voto de missão de forma atômica e anônima
 create or replace function append_mission_vote(p_room_id uuid, p_player_id uuid, p_vote text)
 returns void as $$
 declare
@@ -99,7 +126,7 @@ begin
 end;
 $$ language plpgsql;
 
--- 5. Tabela de Mensagens (Chat)
+-- 7. Tabela de Mensagens (Chat) e Políticas RLS
 create table messages (
   id uuid primary key default gen_random_uuid(),
   room_id uuid not null references rooms(id) on delete cascade,
@@ -112,8 +139,9 @@ create table messages (
 -- Índices para otimizar buscas do chat
 create index idx_messages_room_id on messages(room_id);
 
--- Desativar RLS para o chat
-alter table messages disable row level security;
+-- Ativar RLS para o chat
+alter table messages enable row level security;
+create policy "Permitir tudo no chat" on messages for all using (true);
 
 -- Habilitar Supabase Realtime para mensagens
 do $$
@@ -122,3 +150,65 @@ begin
 exception when duplicate_object then
   -- Silencia erro caso a tabela já esteja na publicação
 end $$;
+
+-- 8. Funções RPC Seguras (Security Definer) para consulta de papéis confidenciais
+
+-- A) Buscar o próprio papel
+create or replace function get_my_role(p_player_id uuid, p_secret_token uuid)
+returns text as $$
+declare
+  v_role text;
+begin
+  -- Verifica se o token secreto confere
+  if not exists (
+    select 1 from player_secrets 
+    where player_id = p_player_id and secret_token = p_secret_token
+  ) then
+    return null;
+  end if;
+
+  select role into v_role from player_roles where player_id = p_player_id;
+  return v_role;
+end;
+$$ language plpgsql security definer;
+
+-- B) Buscar os IDs dos outros Ladrões (apenas se quem chama for Ladrão)
+create or replace function get_thieves(p_player_id uuid, p_secret_token uuid)
+returns table (player_id uuid) as $$
+begin
+  -- Verifica se o token secreto confere E se quem chama é Ladrão (THIEF)
+  if not exists (
+    select 1 from player_secrets s
+    join player_roles r on r.player_id = s.player_id
+    where s.player_id = p_player_id 
+      and s.secret_token = p_secret_token 
+      and r.role = 'THIEF'
+  ) then
+    return;
+  end if;
+
+  -- Retorna todos os IDs dos jogadores que são ladrões na mesma sala
+  return query 
+  select pr.player_id 
+  from player_roles pr
+  join players p on p.id = pr.player_id
+  where pr.role = 'THIEF' 
+    and p.room_id = (select room_id from players where id = p_player_id);
+end;
+$$ language plpgsql security definer;
+
+-- C) Revelar todos os papéis (Apenas quando a partida terminou em GAME_OVER)
+create or replace function get_game_over_roles(p_room_id uuid)
+returns table (player_id uuid, role varchar(50)) as $$
+begin
+  -- Permite visualizar se o estado da sala for GAME_OVER
+  if exists (select 1 from rooms where id = p_room_id and state = 'GAME_OVER') then
+    return query 
+    select pr.player_id, pr.role 
+    from player_roles pr
+    join players p on p.id = pr.player_id
+    where p.room_id = p_room_id;
+  end if;
+end;
+$$ language plpgsql security definer;
+

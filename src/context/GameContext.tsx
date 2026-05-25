@@ -75,6 +75,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('crazyhotel_player_id');
     localStorage.removeItem('crazyhotel_room_id');
     localStorage.removeItem('crazyhotel_room_code');
+    localStorage.removeItem('crazyhotel_secret_token');
   }, []);
 
   // Limpa apenas os estados em memória (React state)
@@ -84,6 +85,68 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCurrentPlayer(null);
     setMessages([]);
     setError(null);
+  }, []);
+
+  // Busca e enriquece os papéis confidenciais (hóspede/ladrão) dos jogadores
+  const fetchRolesForPlayers = useCallback(async (
+    roomState: string,
+    playersList: Player[],
+    myPlayerId: string | null,
+    mySecretToken: string | null
+  ): Promise<Player[]> => {
+    if (!playersList || playersList.length === 0) return playersList;
+
+    // 1. Se o jogo terminou (GAME_OVER), todos os papéis são públicos via RPC
+    if (roomState === 'GAME_OVER') {
+      const { data: gameOverRoles, error: rpcErr } = await supabase.rpc('get_game_over_roles', {
+        p_room_id: playersList[0].room_id
+      });
+      if (!rpcErr && gameOverRoles) {
+        return playersList.map(p => {
+          const found = gameOverRoles.find((r: any) => r.player_id === p.id);
+          return { ...p, role: found ? found.role as PlayerRole : null };
+        });
+      }
+      return playersList;
+    }
+
+    // 2. Se for jogador normal com credenciais válidas, busca as informações permitidas
+    if (myPlayerId && mySecretToken) {
+      try {
+        const { data: myRole, error: roleError } = await supabase.rpc('get_my_role', {
+          p_player_id: myPlayerId,
+          p_secret_token: mySecretToken
+        });
+
+        if (!roleError && myRole) {
+          let thiefIds: string[] = [];
+          if (myRole === 'THIEF') {
+            const { data: thieves } = await supabase.rpc('get_thieves', {
+              p_player_id: myPlayerId,
+              p_secret_token: mySecretToken
+            });
+            if (thieves) {
+              thiefIds = thieves.map((t: any) => t.player_id);
+            }
+          }
+
+          return playersList.map(p => {
+            if (p.id === myPlayerId) {
+              return { ...p, role: myRole as PlayerRole };
+            }
+            if (myRole === 'THIEF' && thiefIds.includes(p.id)) {
+              return { ...p, role: 'THIEF' as PlayerRole };
+            }
+            return { ...p, role: null };
+          });
+        }
+      } catch (err) {
+        console.error('Erro ao buscar papéis secretos:', err);
+      }
+    }
+
+    // Por padrão (ex: Host durante o jogo ou sem sessão), oculta todos os papéis
+    return playersList.map(p => ({ ...p, role: null }));
   }, []);
 
   // Busca inicial dos dados da sala e jogadores
@@ -116,8 +179,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Erro ao buscar jogadores.');
       }
 
-      setPlayers((playersData || []) as Player[]);
-
       // Fetch Messages
       const { data: messagesData, error: messagesError } = await supabase
         .from('messages')
@@ -130,39 +191,54 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // Se não for a tela de TV (Host), tenta reconectar
-      if (!isHostPage) {
-        const storedPlayerId = localStorage.getItem('crazyhotel_player_id');
-        const storedRoomId = localStorage.getItem('crazyhotel_room_id');
+      let currentPl: Player | null = null;
+      const storedPlayerId = localStorage.getItem('crazyhotel_player_id');
+      const storedSecretToken = localStorage.getItem('crazyhotel_secret_token');
+      const storedRoomId = localStorage.getItem('crazyhotel_room_id');
 
-        if (storedPlayerId && storedRoomId === roomData.id) {
-          const { data: playerExist, error: playerExistError } = await supabase
-            .from('players')
-            .select('*')
-            .eq('id', storedPlayerId)
-            .single();
+      if (!isHostPage && storedPlayerId && storedRoomId === roomData.id) {
+        const { data: playerExist, error: playerExistError } = await supabase
+          .from('players')
+          .select('*')
+          .eq('id', storedPlayerId)
+          .single();
 
-          if (!playerExistError && playerExist) {
-            localStorage.setItem('crazyhotel_room_code', roomData.code);
-            if (playerExist.status !== 'CONNECTED') {
-              const { data: updated } = await supabase
-                .from('players')
-                .update({ status: 'CONNECTED' })
-                .eq('id', storedPlayerId)
-                .select()
-                .single();
-              setCurrentPlayer((updated || playerExist) as Player);
-            } else {
-              setCurrentPlayer(playerExist as Player);
-            }
+        if (!playerExistError && playerExist) {
+          localStorage.setItem('crazyhotel_room_code', roomData.code);
+          if (playerExist.status !== 'CONNECTED') {
+            const { data: updated } = await supabase
+              .from('players')
+              .update({ status: 'CONNECTED' })
+              .eq('id', storedPlayerId)
+              .select()
+              .single();
+            currentPl = (updated || playerExist) as Player;
+          } else {
+            currentPl = playerExist as Player;
           }
         }
+      }
+
+      // Enriquecer os papéis
+      const enrichedPlayers = await fetchRolesForPlayers(
+        roomData.state,
+        (playersData || []) as Player[],
+        !isHostPage ? storedPlayerId : null,
+        !isHostPage ? storedSecretToken : null
+      );
+
+      setPlayers(enrichedPlayers);
+
+      if (currentPl) {
+        const foundCurrent = enrichedPlayers.find(p => p.id === currentPl?.id);
+        setCurrentPlayer(foundCurrent || currentPl);
       }
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ocorreu um erro ao carregar a sala.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchRolesForPlayers]);
 
   // Adiciona listener para marcar status do jogador como DISCONNECTED ao fechar a aba/janela
   useEffect(() => {
@@ -208,8 +284,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'rooms', filter: `id=eq.${room.id}` },
-        (payload) => {
-          setRoom(payload.new as Room);
+        async (payload) => {
+          const updatedRoom = payload.new as Room;
+          setRoom(updatedRoom);
+
+          // Ao atualizar a sala (por exemplo, se mudou para GAME_OVER), recarregamos os papéis dos jogadores
+          const { data: latestPlayers } = await supabase
+            .from('players')
+            .select('*')
+            .eq('room_id', room.id)
+            .order('joined_at', { ascending: true });
+
+          if (latestPlayers) {
+            const storedPlayerId = localStorage.getItem('crazyhotel_player_id');
+            const storedSecretToken = localStorage.getItem('crazyhotel_secret_token');
+            const isHostPage = !storedPlayerId;
+
+            const enriched = await fetchRolesForPlayers(
+              updatedRoom.state,
+              latestPlayers as Player[],
+              !isHostPage ? storedPlayerId : null,
+              !isHostPage ? storedSecretToken : null
+            );
+            setPlayers(enriched);
+            
+            if (storedPlayerId) {
+              const current = enriched.find((p) => p.id === storedPlayerId);
+              if (current) {
+                setCurrentPlayer(current);
+              }
+            }
+          }
         }
       )
       .subscribe();
@@ -228,13 +333,23 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             .order('joined_at', { ascending: true });
 
           if (data) {
-            setPlayers(data as Player[]);
-            
             const storedPlayerId = localStorage.getItem('crazyhotel_player_id');
+            const storedSecretToken = localStorage.getItem('crazyhotel_secret_token');
+            const isHostPage = !storedPlayerId;
+
+            const enrichedPlayers = await fetchRolesForPlayers(
+              room.state,
+              data as Player[],
+              !isHostPage ? storedPlayerId : null,
+              !isHostPage ? storedSecretToken : null
+            );
+
+            setPlayers(enrichedPlayers);
+            
             if (storedPlayerId) {
-              const current = data.find((p) => p.id === storedPlayerId);
+              const current = enrichedPlayers.find((p) => p.id === storedPlayerId);
               if (current) {
-                setCurrentPlayer(current as Player);
+                setCurrentPlayer(current);
               }
             }
           }
@@ -263,7 +378,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       supabase.removeChannel(messagesChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room?.id]);
+  }, [room?.id, fetchRolesForPlayers]);
 
   // AÇÃO: Criar Sala (Host)
   const createRoom = useCallback(async (): Promise<string> => {
@@ -350,6 +465,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error('Esta sala já atingiu o limite máximo de jogadores.');
       }
 
+      const secretToken = crypto.randomUUID();
       const { data: playerData, error: joinError } = await supabase
         .from('players')
         .insert({
@@ -365,12 +481,38 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (joinError) throw new Error('Não foi possível entrar na sala.');
 
+      // Insere o token secreto na tabela privada de segredos
+      const { error: secretError } = await supabase
+        .from('player_secrets')
+        .insert({
+          player_id: playerData.id,
+          secret_token: secretToken
+        });
+
+      if (secretError) throw new Error('Falha ao salvar segredo do jogador.');
+
       localStorage.setItem('crazyhotel_player_id', playerData.id);
+      localStorage.setItem('crazyhotel_secret_token', secretToken);
       localStorage.setItem('crazyhotel_room_id', roomData.id);
       localStorage.setItem('crazyhotel_room_code', roomData.code);
 
+      // Busca os jogadores novamente e enriquece com papéis
+      const { data: rawPlayers } = await supabase
+        .from('players')
+        .select('*')
+        .eq('room_id', roomData.id)
+        .order('joined_at', { ascending: true });
+
+      const enriched = await fetchRolesForPlayers(
+        roomData.state,
+        (rawPlayers || []) as Player[],
+        playerData.id,
+        secretToken
+      );
+
       setRoom(roomData as Room);
-      setCurrentPlayer(playerData as Player);
+      setPlayers(enriched);
+      setCurrentPlayer(enriched.find(p => p.id === playerData.id) || (playerData as Player));
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : 'Erro ao entrar na sala.';
       setError(errMsg);
@@ -378,7 +520,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [fetchRolesForPlayers]);
 
   // AÇÃO: Iniciar Partida (The Resistance)
   const startGame = useCallback(async () => {
@@ -403,23 +545,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Embaralha e define os papéis
       const shuffled = [...activePlayers].sort(() => Math.random() - 0.5);
-      const updates = shuffled.map((player, index) => {
+      
+      // 1. Atualiza a tabela players (sem o campo role)
+      const playerUpdates = shuffled.map((player) => ({
+        id: player.id,
+        room_id: room.id,
+        name: player.name,
+        is_alive: true,
+        score: 0,
+        team_vote: null,
+        has_voted_mission: false,
+        status: player.status
+      }));
+
+      const { error: upsertError } = await supabase.from('players').upsert(playerUpdates);
+      if (upsertError) throw new Error('Falha ao atualizar jogadores.');
+
+      // 2. Insere os papéis na tabela privada player_roles
+      const roleUpdates = shuffled.map((player, index) => {
         const role: PlayerRole = index < thiefCount ? 'THIEF' : 'GUEST';
         return {
-          id: player.id,
-          room_id: room.id,
-          name: player.name,
-          role,
-          is_alive: true,
-          score: 0,
-          team_vote: null,
-          has_voted_mission: false,
-          status: player.status
+          player_id: player.id,
+          role
         };
       });
 
-      const { error: upsertError } = await supabase.from('players').upsert(updates);
-      if (upsertError) throw new Error('Falha ao distribuir papéis.');
+      const { error: rolesError } = await supabase.from('player_roles').insert(roleUpdates);
+      if (rolesError) throw new Error('Falha ao distribuir papéis secretos.');
 
       // Escolhe o primeiro líder aleatoriamente
       const initialLeader = activePlayers[Math.floor(Math.random() * activePlayers.length)];
@@ -683,10 +835,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!room) return;
     setLoading(true);
     try {
+      // 1. Remove os papéis antigos da tabela privada player_roles
+      const playerIds = players.map((p) => p.id);
+      if (playerIds.length > 0) {
+        await supabase
+          .from('player_roles')
+          .delete()
+          .in('player_id', playerIds);
+      }
+
+      // 2. Reseta campos dos jogadores
       await supabase
         .from('players')
         .update({
-          role: null,
           team_vote: null,
           has_voted_mission: false
         })
