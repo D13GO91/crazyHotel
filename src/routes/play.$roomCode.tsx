@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from '@tanstack/react-router';
 import { useGame, getMissionSize } from '../context/GameContext';
 import GlassPanel from '../components/GlassPanel';
 import Button from '../components/Button';
+import ChatPanel from '../components/ChatPanel';
 import { 
   Users, ShieldAlert, ShieldCheck, CheckCircle2, 
-  ThumbsUp, ThumbsDown, Zap, AlertTriangle, Eye
+  ThumbsUp, ThumbsDown, Zap, AlertTriangle, Eye, MessageCircle, X
 } from 'lucide-react';
 
 export default function PlayRoom() {
@@ -13,7 +14,8 @@ export default function PlayRoom() {
   const navigate = useNavigate();
   const { 
     room, currentPlayer, players, loading, error, loadRoomData, 
-    proposeTeam, submitTeamVote, submitMissionVote, clearGame 
+    proposeTeam, submitTeamVote, submitMissionVote, clearGame,
+    messages, sendMessage
   } = useGame();
 
   const [isRoleFlipped, setIsRoleFlipped] = useState(false);
@@ -26,12 +28,29 @@ export default function PlayRoom() {
   const [hasVotedMissionState, setHasVotedMissionState] = useState(false);
   const [showRoleReview, setShowRoleReview] = useState(false);
 
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const isInitialLoad = useRef(true);
+
   // Carrega os dados da sala
   useEffect(() => {
     if (roomCode) {
       loadRoomData(roomCode, false);
     }
   }, [roomCode, loadRoomData]);
+
+  // Controla contagem de não lidas no chat
+  useEffect(() => {
+    if (showChatModal) {
+      setUnreadCount(0);
+      return;
+    }
+    if (isInitialLoad.current) {
+      isInitialLoad.current = false;
+      return;
+    }
+    setUnreadCount(prev => prev + 1);
+  }, [messages.length, showChatModal]);
 
   // Reseta estados quando as fases do jogo mudam
   useEffect(() => {
@@ -580,6 +599,125 @@ export default function PlayRoom() {
             <Button onClick={() => setShowRoleReview(false)} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#fff', fontSize: '1rem', fontWeight: 600 }}>
               Esconder Papel
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Chat Floating Action Button */}
+      <button
+        onClick={() => setShowChatModal(true)}
+        style={{
+          position: 'fixed',
+          bottom: '1.5rem',
+          right: '1.5rem',
+          width: '3.25rem',
+          height: '3.25rem',
+          borderRadius: '50%',
+          background: 'linear-gradient(135deg, var(--accent) 0%, #9a7611 100%)',
+          border: 'none',
+          color: 'var(--text-light)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 4px 16px rgba(var(--accent-rgb), 0.4)',
+          cursor: 'pointer',
+          zIndex: 99,
+          transition: 'var(--transition-spring)',
+          outline: 'none'
+        }}
+        onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.08)'}
+        onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        <MessageCircle size={22} />
+        {unreadCount > 0 && (
+          <div 
+            style={{ 
+              position: 'absolute', 
+              top: '-0.2rem', 
+              right: '-0.2rem', 
+              background: 'var(--color-thief)', 
+              color: '#fff', 
+              borderRadius: '50%', 
+              minWidth: '1.25rem', 
+              height: '1.25rem', 
+              fontSize: '0.75rem', 
+              fontWeight: 'bold', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              padding: '0 0.2rem',
+              border: '1.5px solid var(--bg-space)',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.3)'
+            }}
+          >
+            {unreadCount}
+          </div>
+        )}
+      </button>
+
+      {/* Modal/Drawer de Chat */}
+      {showChatModal && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(6, 4, 13, 0.85)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+          onClick={() => setShowChatModal(false)}
+        >
+          <div 
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              height: '80%',
+              maxHeight: '650px',
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Botão de Fechar Modal */}
+            <button 
+              onClick={() => setShowChatModal(false)}
+              style={{
+                position: 'absolute',
+                top: '-2.75rem',
+                right: '0',
+                background: 'rgba(255,255,255,0.05)',
+                border: '1px solid rgba(255,255,255,0.1)',
+                color: 'var(--text-normal)',
+                width: '2.25rem',
+                height: '2.25rem',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'var(--transition-smooth)',
+                outline: 'none'
+              }}
+            >
+              <X size={18} />
+            </button>
+
+            {/* ChatPanel wrapper */}
+            <div style={{ flex: 1, height: '100%' }}>
+              <ChatPanel 
+                messages={messages} 
+                onSendMessage={sendMessage} 
+                currentUserId={currentPlayer.id} 
+              />
+            </div>
           </div>
         </div>
       )}

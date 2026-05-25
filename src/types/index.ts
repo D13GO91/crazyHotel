@@ -51,3 +51,13 @@ export interface Player {
   joined_at: string;
   status: 'CONNECTED' | 'DISCONNECTED';
 }
+
+export interface Message {
+  id: string;
+  room_id: string;
+  player_id: string | null;
+  player_name: string;
+  content: string;
+  created_at: string;
+}
+

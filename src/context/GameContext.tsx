@@ -1,12 +1,13 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabase';
-import type { Room, Player, GameState, PlayerRole, MissionHistoryEntry } from '../types';
+import type { Room, Player, GameState, PlayerRole, MissionHistoryEntry, Message } from '../types';
 
 interface GameContextProps {
   room: Room | null;
   players: Player[];
   currentPlayer: Player | null;
+  messages: Message[];
   loading: boolean;
   error: string | null;
   createRoom: () => Promise<string>;
@@ -23,6 +24,7 @@ interface GameContextProps {
   clearGame: () => void;
   clearReactState: () => void;
   loadRoomData: (code: string, isHostPage: boolean) => Promise<void>;
+  sendMessage: (content: string) => Promise<void>;
 }
 
 // Tabuleiro clássico do The Resistance
@@ -59,6 +61,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [room, setRoom] = useState<Room | null>(null);
   const [players, setPlayers] = useState<Player[]>([]);
   const [currentPlayer, setCurrentPlayer] = useState<Player | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +70,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRoom(null);
     setPlayers([]);
     setCurrentPlayer(null);
+    setMessages([]);
     setError(null);
     localStorage.removeItem('crazyhotel_player_id');
     localStorage.removeItem('crazyhotel_room_id');
@@ -78,6 +82,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setRoom(null);
     setPlayers([]);
     setCurrentPlayer(null);
+    setMessages([]);
     setError(null);
   }, []);
 
@@ -112,6 +117,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       setPlayers((playersData || []) as Player[]);
+
+      // Fetch Messages
+      const { data: messagesData, error: messagesError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('room_id', roomData.id)
+        .order('created_at', { ascending: true });
+
+      if (!messagesError && messagesData) {
+        setMessages(messagesData as Message[]);
+      }
 
       // Se não for a tela de TV (Host), tenta reconectar
       if (!isHostPage) {
@@ -226,9 +242,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       )
       .subscribe();
 
+    // 3. Ouvir alterações nas mensagens
+    const messagesChannel = supabase
+      .channel(`messages_changes:${room.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `room_id=eq.${room.id}` },
+        (payload) => {
+          setMessages((prev) => {
+            if (prev.some(m => m.id === payload.new.id)) return prev;
+            return [...prev, payload.new as Message];
+          });
+        }
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(roomChannel);
       supabase.removeChannel(playersChannel);
+      supabase.removeChannel(messagesChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [room?.id]);
@@ -682,12 +714,30 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [room]);
 
+  // AÇÃO: Enviar Mensagem no Chat
+  const sendMessage = useCallback(async (content: string) => {
+    if (!room || !currentPlayer) return;
+    try {
+      await supabase
+        .from('messages')
+        .insert({
+          room_id: room.id,
+          player_id: currentPlayer.id,
+          player_name: currentPlayer.name,
+          content: content.trim()
+        });
+    } catch (err: unknown) {
+      console.error('Erro ao enviar mensagem:', err);
+    }
+  }, [room, currentPlayer]);
+
   return (
     <GameContext.Provider
       value={{
         room,
         players,
         currentPlayer,
+        messages,
         loading,
         error,
         createRoom,
@@ -704,6 +754,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearGame,
         clearReactState,
         loadRoomData,
+        sendMessage,
       }}
     >
       {children}

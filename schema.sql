@@ -98,3 +98,27 @@ begin
   where id = p_room_id;
 end;
 $$ language plpgsql;
+
+-- 5. Tabela de Mensagens (Chat)
+create table messages (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  player_id uuid references players(id) on delete cascade,
+  player_name varchar(100) not null,
+  content text not null,
+  created_at timestamp with time zone not null default now()
+);
+
+-- Índices para otimizar buscas do chat
+create index idx_messages_room_id on messages(room_id);
+
+-- Desativar RLS para o chat
+alter table messages disable row level security;
+
+-- Habilitar Supabase Realtime para mensagens
+do $$
+begin
+  alter publication supabase_realtime add table messages;
+exception when duplicate_object then
+  -- Silencia erro caso a tabela já esteja na publicação
+end $$;
