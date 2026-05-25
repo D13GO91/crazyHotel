@@ -87,7 +87,7 @@ export default function Home() {
   };
 
   return (
-    <div className="layout-card animate-float" style={{ padding: '2rem 1rem' }}>
+    <div className="home-container animate-float" style={{ padding: '2rem 1rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
         <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(var(--accent-rgb), 0.1)', borderRadius: '50%', marginBottom: '1rem', border: '1px solid rgba(var(--accent-rgb), 0.2)' }}>
           <ShieldAlert size={48} style={{ color: 'var(--accent-light)' }} />
@@ -115,7 +115,7 @@ export default function Home() {
               Você tem uma partida em andamento!
             </div>
             <div style={{ fontSize: '0.95rem', color: 'var(--text-muted)' }}>
-              Identificamos uma conexão ativa na sala <strong style={{ color: '#fff', fontSize: '1.1rem', letterSpacing: '0.05em' }}>{activeSession.roomCode}</strong>.
+              Identificamos uma conexão active na sala <strong style={{ color: '#fff', fontSize: '1.1rem', letterSpacing: '0.05em' }}>{activeSession.roomCode}</strong>.
             </div>
             <div style={{ display: 'flex', gap: '1rem', width: '100%', marginTop: '0.25rem' }}>
               <Button onClick={handleReconnect} style={{ flex: 2 }}>
@@ -129,74 +129,76 @@ export default function Home() {
         </GlassPanel>
       )}
 
-      <GlassPanel hoverable style={{ marginBottom: '2rem' }}>
-        <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-          <Users size={24} /> Entrar no Jogo
-        </h2>
-        <form onSubmit={handleJoinRoom} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
-          <div>
-            <Input
-              type="text"
-              placeholder="CÓDIGO DA SALA (4 LETRAS)"
-              value={roomCodeInput}
-              onChange={(e) => setRoomCodeInput(e.target.value.slice(0, 4).toUpperCase())}
-              maxLength={4}
-              disabled={isJoining || isCreating}
-              style={{ letterSpacing: '0.2em', fontWeight: 'bold' }}
-            />
-          </div>
-          <div>
-            <Input
-              type="text"
-              placeholder="SEU APELIDO"
-              value={playerNameInput}
-              onChange={(e) => setPlayerNameInput(e.target.value.slice(0, 15))}
-              maxLength={15}
-              disabled={isJoining || isCreating}
-            />
-          </div>
-
-          {(validationError || gameError) && (
-            <div style={{
-              background: 'rgba(244, 63, 94, 0.1)',
-              border: '1px solid rgba(244, 63, 94, 0.3)',
-              color: 'var(--color-thief)',
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              fontSize: '0.95rem'
-            }}>
-              {validationError || gameError}
+      <div className="home-grid">
+        <GlassPanel hoverable>
+          <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+            <Users size={24} /> Entrar no Jogo
+          </h2>
+          <form onSubmit={handleJoinRoom} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem' }}>
+            <div>
+              <Input
+                type="text"
+                placeholder="CÓDIGO DA SALA (4 LETRAS)"
+                value={roomCodeInput}
+                onChange={(e) => setRoomCodeInput(e.target.value.slice(0, 4).toUpperCase())}
+                maxLength={4}
+                disabled={isJoining || isCreating}
+                style={{ letterSpacing: '0.2em', fontWeight: 'bold' }}
+              />
             </div>
-          )}
+            <div>
+              <Input
+                type="text"
+                placeholder="SEU APELIDO"
+                value={playerNameInput}
+                onChange={(e) => setPlayerNameInput(e.target.value.slice(0, 15))}
+                maxLength={15}
+                disabled={isJoining || isCreating}
+              />
+            </div>
 
-          <Button type="submit" loading={isJoining} disabled={isCreating}>
-            Entrar na Sala
-          </Button>
-        </form>
-      </GlassPanel>
+            {(validationError || gameError) && (
+              <div style={{
+                background: 'rgba(244, 63, 94, 0.1)',
+                border: '1px solid rgba(244, 63, 94, 0.3)',
+                color: 'var(--color-thief)',
+                padding: '0.75rem',
+                borderRadius: '0.5rem',
+                fontSize: '0.95rem'
+              }}>
+                {validationError || gameError}
+              </div>
+            )}
 
-      <div style={{ display: 'flex', alignItems: 'center', margin: '1.5rem 0' }}>
-        <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
-        <span style={{ padding: '0 1rem', color: 'var(--text-dark)', fontSize: '0.9rem', fontWeight: 600 }}>OU</span>
-        <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.08)' }} />
-      </div>
+            <Button type="submit" loading={isJoining} disabled={isCreating}>
+              Entrar na Sala
+            </Button>
+          </form>
+        </GlassPanel>
 
-      <GlassPanel hoverable style={{ padding: '1.5rem' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.95rem' }}>
-            Vai transmitir o jogo na TV ou projetor? Crie uma sala nova abaixo.
-          </div>
-          <Button
-            variant="secondary"
-            onClick={handleCreateRoom}
-            loading={isCreating}
-            disabled={isJoining}
-            style={{ gap: '0.5rem' }}
-          >
-            <Tv size={20} /> Criar Sala da TV
-          </Button>
+        <div className="home-divider">
+          <div className="home-divider-line" />
+          <span className="home-divider-text">OU</span>
+          <div className="home-divider-line" />
         </div>
-      </GlassPanel>
+
+        <GlassPanel hoverable style={{ padding: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem', height: '100%', justifyContent: 'space-between' }}>
+            <div style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.95rem' }}>
+              Vai transmitir o jogo na TV ou projetor? Crie uma sala nova abaixo.
+            </div>
+            <Button
+              variant="secondary"
+              onClick={handleCreateRoom}
+              loading={isCreating}
+              disabled={isJoining}
+              style={{ gap: '0.5rem', marginTop: 'auto' }}
+            >
+              <Tv size={20} /> Criar Sala da TV
+            </Button>
+          </div>
+        </GlassPanel>
+      </div>
     </div>
   );
 }

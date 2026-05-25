@@ -298,3 +298,168 @@ p {
   color: var(--color-thief);
   text-shadow: 0 0 10px var(--color-thief-glow);
 }
+
+/* Home Screen Responsive Layout */
+.home-container {
+  width: 100%;
+  margin: auto;
+  max-width: 480px;
+}
+
+.home-grid {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.home-divider {
+  display: flex;
+  align-items: center;
+  margin: 1.5rem 0;
+  width: 100%;
+}
+
+.home-divider-line {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.home-divider-text {
+  padding: 0 1rem;
+  color: var(--text-dark);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+@media (min-width: 768px) {
+  .home-container {
+    max-width: 920px;
+  }
+
+  .home-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 1.5rem;
+    align-items: stretch;
+  }
+
+  .home-divider {
+    flex-direction: column;
+    margin: 0 0.5rem;
+    width: auto;
+    height: 100%;
+    justify-content: center;
+  }
+
+  .home-divider-line {
+    flex: 1;
+    width: 1px;
+    height: auto;
+  }
+
+  .home-divider-text {
+    padding: 1rem 0;
+  }
+}
+
+/* Host/TV Dashboard View Optimization for Computers */
+.host-container {
+  width: 100%;
+  padding: 0.75rem 0;
+}
+
+.host-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.host-progress-board {
+  margin-bottom: 1.5rem;
+}
+
+.host-progress-board-circles {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.host-status-scores {
+  display: flex;
+  justify-content: center;
+  gap: 3rem;
+  margin-top: 1rem;
+}
+
+.host-status-scores-col {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.host-status-scores-col-bordered {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  border-left: 1px solid rgba(255,255,255,0.08);
+  padding-left: 3rem;
+}
+
+.host-panel {
+  text-align: center;
+  padding: 2rem 1.5rem !important;
+}
+
+.host-panel-two-cols {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 1.5rem;
+}
+
+.host-lobby-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin: 0 auto 1.5rem auto;
+  maxWidth: 900px;
+}
+
+.host-lobby-players-card {
+  padding: 0.85rem !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  border-color: rgba(255, 255, 255, 0.04);
+}
+
+/* Optimize spacing for smaller desktop viewports (e.g. laptops) */
+@media (min-width: 768px) and (max-height: 850px) {
+  .host-header {
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
+  .host-progress-board {
+    margin-bottom: 1rem;
+  }
+  .host-status-scores {
+    margin-top: 0.75rem;
+  }
+  .host-panel {
+    padding: 1.5rem 1rem !important;
+  }
+  .host-panel-two-cols {
+    gap: 1rem;
+  }
+  .host-lobby-grid {
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+}
