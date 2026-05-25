@@ -143,7 +143,7 @@ export default function HostRoom() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', paddingBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Tv size={24} style={{ color: 'var(--accent-light)' }} />
-          <span style={{ fontWeight: 700, fontSize: '1.25rem', letterSpacing: '0.05em' }}>CRAZY HOTEL: THE RESISTANCE</span>
+          <span style={{ fontWeight: 700, fontSize: '1.25rem', letterSpacing: '0.05em' }}>CRAZY HOTEL</span>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <span style={{ color: 'var(--text-muted)' }}>CÓDIGO:</span>
