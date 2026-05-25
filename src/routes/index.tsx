@@ -9,7 +9,7 @@ import { Users, Tv, ShieldAlert } from 'lucide-react';
 export default function Home() {
   const navigate = useNavigate();
   const { createRoom, joinRoom, error: gameError, clearGame, clearReactState } = useGame();
-  
+
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [playerNameInput, setPlayerNameInput] = useState('');
   const [isJoining, setIsJoining] = useState(false);
@@ -100,10 +100,10 @@ export default function Home() {
       </div>
 
       {activeSession && (
-        <GlassPanel 
-          style={{ 
-            marginBottom: '2rem', 
-            border: '1px solid rgba(var(--accent-rgb), 0.3)', 
+        <GlassPanel
+          style={{
+            marginBottom: '2rem',
+            border: '1px solid rgba(var(--accent-rgb), 0.3)',
             background: 'linear-gradient(135deg, rgba(var(--accent-rgb), 0.15) 0%, rgba(var(--color-guest-rgb), 0.05) 100%)',
             padding: '1.25rem',
             borderRadius: '1rem',
@@ -157,11 +157,11 @@ export default function Home() {
           </div>
 
           {(validationError || gameError) && (
-            <div style={{ 
-              background: 'rgba(244, 63, 94, 0.1)', 
-              border: '1px solid rgba(244, 63, 94, 0.3)', 
-              color: 'var(--color-thief)', 
-              padding: '0.75rem', 
+            <div style={{
+              background: 'rgba(244, 63, 94, 0.1)',
+              border: '1px solid rgba(244, 63, 94, 0.3)',
+              color: 'var(--color-thief)',
+              padding: '0.75rem',
               borderRadius: '0.5rem',
               fontSize: '0.95rem'
             }}>
@@ -186,10 +186,10 @@ export default function Home() {
           <div style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.95rem' }}>
             Vai transmitir o jogo na TV ou projetor? Crie uma sala nova abaixo.
           </div>
-          <Button 
-            variant="secondary" 
-            onClick={handleCreateRoom} 
-            loading={isCreating} 
+          <Button
+            variant="secondary"
+            onClick={handleCreateRoom}
+            loading={isCreating}
             disabled={isJoining}
             style={{ gap: '0.5rem' }}
           >
