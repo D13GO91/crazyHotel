@@ -7,8 +7,10 @@ alter table if exists rooms drop constraint if exists fk_rooms_leader;
 drop table if exists messages;
 drop table if exists player_roles;
 drop table if exists player_secrets;
+drop table if exists mission_votes_secure;
 drop table if exists players;
 drop table if exists rooms;
+
 
 -- 1. Tabela de Salas (Rooms)
 create table rooms (
@@ -99,7 +101,18 @@ create table player_secrets (
 alter table player_secrets enable row level security;
 create policy "Permitir inserção de segredos" on player_secrets for insert with check (true);
 
--- 6. Função RPC para registrar voto de missão de forma atômica e anônima
+-- Tabela privada de votos de missão (oculta dos jogadores em tempo real)
+create table mission_votes_secure (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references rooms(id) on delete cascade,
+  player_id uuid not null references players(id) on delete cascade,
+  vote varchar(50) not null -- 'SUCCESS' ou 'FAIL'
+);
+alter table mission_votes_secure enable row level security;
+create policy "Permitir inserção de votos secretos" on mission_votes_secure for insert with check (true);
+create policy "Permitir remoção de votos secretos" on mission_votes_secure for delete using (true);
+
+-- 6. Função RPC para registrar voto de missão de forma atômica e anônima na tabela privada
 create or replace function append_mission_vote(p_room_id uuid, p_player_id uuid, p_vote text)
 returns void as $$
 declare
@@ -119,12 +132,42 @@ begin
   set has_voted_mission = true 
   where id = p_player_id;
 
-  -- Adiciona o voto de forma anônima ao array jsonb da sala
-  update rooms 
-  set mission_votes = mission_votes || jsonb_build_array(p_vote)
-  where id = p_room_id;
+  -- Insere o voto de forma segura na tabela privada
+  insert into mission_votes_secure (room_id, player_id, vote)
+  values (p_room_id, p_player_id, p_vote);
 end;
-$$ language plpgsql;
+$$ language plpgsql security definer;
+
+-- 7. Função RPC para revelar os votos da missão de forma totalmente embaralhada e anônima
+create or replace function reveal_mission_votes_secure(p_room_id uuid)
+returns void as $$
+declare
+  v_shuffled_votes jsonb;
+begin
+  -- Agrupa os votos da tabela privada de forma totalmente aleatória (ORDER BY random())
+  select jsonb_agg(vote) into v_shuffled_votes
+  from (
+    select vote 
+    from mission_votes_secure 
+    where room_id = p_room_id
+    order by random()
+  ) sub;
+
+  -- Se não houver votos, define como array vazio
+  if v_shuffled_votes is null then
+    v_shuffled_votes := '[]'::jsonb;
+  end if;
+
+  -- Atualiza a sala com os votos embaralhados e muda o estado para MISSION_REVEAL
+  update rooms 
+  set mission_votes = v_shuffled_votes,
+      state = 'MISSION_REVEAL'
+  where id = p_room_id;
+
+  -- Deleta os votos da tabela privada para limpar e manter a privacidade
+  delete from mission_votes_secure where room_id = p_room_id;
+end;
+$$ language plpgsql security definer;
 
 -- 7. Tabela de Mensagens (Chat) e Políticas RLS
 create table messages (
@@ -172,27 +215,27 @@ begin
 end;
 $$ language plpgsql security definer;
 
--- B) Buscar os IDs dos outros Ladrões (apenas se quem chama for Ladrão)
+-- B) Buscar os IDs dos outros Ladrões (apenas se quem chama for Ladrão, Assassino ou Gerente)
 create or replace function get_thieves(p_player_id uuid, p_secret_token uuid)
 returns table (player_id uuid) as $$
 begin
-  -- Verifica se o token secreto confere E se quem chama é Ladrão (THIEF)
+  -- Verifica se o token secreto confere E se quem chama é Ladrão (THIEF), Assassino (ASSASSIN) ou Gerente (MANAGER)
   if not exists (
     select 1 from player_secrets s
     join player_roles r on r.player_id = s.player_id
     where s.player_id = p_player_id 
       and s.secret_token = p_secret_token 
-      and r.role = 'THIEF'
+      and r.role in ('THIEF', 'ASSASSIN', 'MANAGER')
   ) then
     return;
   end if;
 
-  -- Retorna todos os IDs dos jogadores que são ladrões na mesma sala
+  -- Retorna todos os IDs dos jogadores que são ladrões ou assassinos na mesma sala
   return query 
   select pr.player_id 
   from player_roles pr
   join players p on p.id = pr.player_id
-  where pr.role = 'THIEF' 
+  where pr.role in ('THIEF', 'ASSASSIN') 
     and p.room_id = (select room_id from players where id = p_player_id);
 end;
 $$ language plpgsql security definer;
@@ -209,6 +252,63 @@ begin
     join players p on p.id = pr.player_id
     where p.room_id = p_room_id;
   end if;
+end;
+$$ language plpgsql security definer;
+
+-- D) Executar assassinato do Gerente pelo Assassino
+create or replace function execute_assassination(p_room_id uuid, p_assassin_id uuid, p_target_id uuid)
+returns boolean as $$
+declare
+  v_assassin_role text;
+  v_target_role text;
+  v_room_state text;
+  v_settings jsonb;
+  v_success boolean;
+begin
+  -- 1. Verificar se a sala existe e está no estado ASSASSIN_CHOICE
+  select state, settings into v_room_state, v_settings from rooms where id = p_room_id;
+  if v_room_state <> 'ASSASSIN_CHOICE' then
+    raise exception 'A sala não está na fase de assassinato.';
+  end if;
+
+  -- 2. Verificar se quem está executando é de fato o assassino na mesma sala
+  select role into v_assassin_role 
+  from player_roles pr
+  join players p on p.id = pr.player_id
+  where pr.player_id = p_assassin_id and p.room_id = p_room_id;
+
+  if v_assassin_role <> 'ASSASSIN' then
+    raise exception 'Apenas o Assassino pode realizar esta ação.';
+  end if;
+
+  -- 3. Obter o papel do alvo
+  select role into v_target_role
+  from player_roles pr
+  join players p on p.id = pr.player_id
+  where pr.player_id = p_target_id and p.room_id = p_room_id;
+
+  -- 4. Resolver a assassinação
+  if v_target_role = 'MANAGER' then
+    v_success := true;
+  else
+    v_success := false;
+  end if;
+
+  -- Atualiza as configurações da sala com o resultado da assassinação e muda o estado para GAME_OVER
+  update rooms
+  set state = 'GAME_OVER',
+      settings = jsonb_set(
+        jsonb_set(
+          v_settings, 
+          '{assassination_target_id}', 
+          to_jsonb(p_target_id)
+        ), 
+        '{assassination_success}', 
+        to_jsonb(v_success)
+      )
+  where id = p_room_id;
+
+  return v_success;
 end;
 $$ language plpgsql security definer;
 

@@ -1,7 +1,7 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabase';
-import type { Room, Player, GameState, PlayerRole, MissionHistoryEntry, Message } from '../types';
+import type { Room, Player, GameState, PlayerRole, MissionHistoryEntry, Message, RoomSettings } from '../types';
 
 interface GameContextProps {
   room: Room | null;
@@ -19,12 +19,14 @@ interface GameContextProps {
   processTeamVote: () => Promise<void>;
   submitMissionVote: (vote: 'SUCCESS' | 'FAIL') => Promise<void>;
   processMissionResult: () => Promise<void>;
-  nextRound: () => Promise<void>;
+  revealMissionVotes: () => Promise<void>;
   restartGame: () => Promise<void>;
   clearGame: () => void;
   clearReactState: () => void;
   loadRoomData: (code: string, isHostPage: boolean) => Promise<void>;
   sendMessage: (content: string) => Promise<void>;
+  executeAssassination: (targetPlayerId: string) => Promise<boolean>;
+  updateRoomSettings: (settings: Partial<RoomSettings>) => Promise<void>;
 }
 
 // Tabuleiro clássico do The Resistance
@@ -120,7 +122,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!roleError && myRole) {
           let thiefIds: string[] = [];
-          if (myRole === 'THIEF') {
+          if (myRole === 'THIEF' || myRole === 'ASSASSIN' || myRole === 'MANAGER') {
             const { data: thieves } = await supabase.rpc('get_thieves', {
               p_player_id: myPlayerId,
               p_secret_token: mySecretToken
@@ -134,7 +136,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (p.id === myPlayerId) {
               return { ...p, role: myRole as PlayerRole };
             }
-            if (myRole === 'THIEF' && thiefIds.includes(p.id)) {
+            if (
+              (myRole === 'THIEF' || myRole === 'ASSASSIN' || myRole === 'MANAGER') && 
+              thiefIds.includes(p.id)
+            ) {
               return { ...p, role: 'THIEF' as PlayerRole };
             }
             return { ...p, role: null };
@@ -391,7 +396,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .insert({
           code,
           state: 'LOBBY',
-          settings: { timer: 60, maxPlayers: 10 },
+          settings: { timer: 60, maxPlayers: 10, gameMode: 'NORMAL' },
         })
         .select()
         .single();
@@ -562,8 +567,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (upsertError) throw new Error('Falha ao atualizar jogadores.');
 
       // 2. Insere os papéis na tabela privada player_roles
+      const gameMode = room.settings?.gameMode || 'NORMAL';
       const roleUpdates = shuffled.map((player, index) => {
-        const role: PlayerRole = index < thiefCount ? 'THIEF' : 'GUEST';
+        let role: PlayerRole = index < thiefCount ? 'THIEF' : 'GUEST';
+        if (gameMode === 'GERENTE_ASSASSINO') {
+          if (index === 0) {
+            role = 'ASSASSIN';
+          } else if (index === thiefCount) {
+            role = 'MANAGER';
+          }
+        }
         return {
           player_id: player.id,
           role
@@ -741,6 +754,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [room, currentPlayer]);
 
+  // AÇÃO: Revelar os Votos da Missão de forma embaralhada (Host/TV)
+  const revealMissionVotes = useCallback(async () => {
+    if (!room) return;
+    try {
+      await supabase.rpc('reveal_mission_votes_secure', {
+        p_room_id: room.id
+      });
+    } catch (err: unknown) {
+      console.error('Erro ao revelar votos de missão:', err);
+    }
+  }, [room]);
+
   // AÇÃO: Processar votos da Missão (Host/TV)
   const processMissionResult = useCallback(async () => {
     if (!room) return;
@@ -776,49 +801,43 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const updatedHistory = [...(room.history || []), newHistoryEntry];
 
       // Verifica condições de vitória (3 pontos)
-      let nextState: GameState = 'MISSION_REVEAL';
-      if (newScoreGuests >= 3 || newScoreThieves >= 3) {
+      let nextState: GameState = 'TEAM_SELECTION';
+      let nextRoundNumber = room.round_number + 1;
+
+      if (newScoreThieves >= 3) {
         nextState = 'GAME_OVER';
+        nextRoundNumber = room.round_number;
+      } else if (newScoreGuests >= 3) {
+        const gameMode = room.settings?.gameMode || 'NORMAL';
+        if (gameMode === 'GERENTE_ASSASSINO') {
+          nextState = 'ASSASSIN_CHOICE';
+        } else {
+          nextState = 'GAME_OVER';
+        }
+        nextRoundNumber = room.round_number;
       }
 
+      // Escolha do próximo líder (rotaciona entre os jogadores ativos)
+      const currentLeaderIndex = activePlayers.findIndex(p => p.id === room.leader_id);
+      const nextLeader = activePlayers[(currentLeaderIndex + 1) % activePlayers.length];
+      const nextLeaderId = nextLeader ? nextLeader.id : room.leader_id;
+
+      // 1. Limpa os votos e status de envio de todos os jogadores
+      await supabase
+        .from('players')
+        .update({ team_vote: null, has_voted_mission: false })
+        .eq('room_id', room.id);
+
+      // 2. Atualiza a sala para a próxima rodada ou fim de jogo
       await supabase
         .from('rooms')
         .update({
           score_guests: newScoreGuests,
           score_thieves: newScoreThieves,
           history: updatedHistory,
-          state: nextState
-        })
-        .eq('id', room.id);
-
-    } catch (err: unknown) {
-      console.error(err);
-    }
-  }, [room, players]);
-
-  // AÇÃO: Avançar para a próxima rodada (Host/TV)
-  const nextRound = useCallback(async () => {
-    if (!room) return;
-    try {
-      const activePlayers = players.filter(p => !p.is_host);
-      const currentLeaderIndex = activePlayers.findIndex(p => p.id === room.leader_id);
-      
-      // Próximo Líder
-      const nextLeader = activePlayers[(currentLeaderIndex + 1) % activePlayers.length];
-
-      // Limpa os votos de todos
-      await supabase
-        .from('players')
-        .update({ team_vote: null, has_voted_mission: false })
-        .eq('room_id', room.id);
-
-      // Avança para escolha do time do próximo round
-      await supabase
-        .from('rooms')
-        .update({
-          round_number: room.round_number + 1,
-          leader_id: nextLeader.id,
-          state: 'TEAM_SELECTION',
+          state: nextState,
+          round_number: nextRoundNumber,
+          leader_id: nextLeaderId,
           current_team: [],
           mission_votes: [],
           refusals_count: 0
@@ -826,9 +845,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('id', room.id);
 
     } catch (err: unknown) {
-      console.error(err);
+      console.error('Erro ao processar resultado da missão:', err);
     }
   }, [room, players]);
+
+
 
   // AÇÃO: Reiniciar Jogo (Host/TV)
   const restartGame = useCallback(async () => {
@@ -853,6 +874,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
         .eq('room_id', room.id);
 
+      const nextSettings = {
+        timer: room.settings.timer,
+        maxPlayers: room.settings.maxPlayers,
+        gameMode: room.settings.gameMode || 'NORMAL'
+      };
+
       await supabase
         .from('rooms')
         .update({
@@ -864,7 +891,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           current_team: [],
           mission_votes: [],
           history: [],
-          leader_id: null
+          leader_id: null,
+          settings: nextSettings
         })
         .eq('id', room.id);
 
@@ -872,6 +900,44 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setError(err instanceof Error ? err.message : 'Falha ao reiniciar o jogo.');
     } finally {
       setLoading(false);
+    }
+  }, [room]);
+
+  // AÇÃO: Executar assassinato do Gerente (Assassino)
+  const executeAssassination = useCallback(async (targetPlayerId: string): Promise<boolean> => {
+    if (!room || !currentPlayer) return false;
+    setLoading(true);
+    try {
+      const { data: success, error: rpcErr } = await supabase.rpc('execute_assassination', {
+        p_room_id: room.id,
+        p_assassin_id: currentPlayer.id,
+        p_target_id: targetPlayerId
+      });
+
+      if (rpcErr) throw rpcErr;
+      return !!success;
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : 'Falha ao executar assassinato.';
+      setError(errMsg);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, [room, currentPlayer]);
+
+  // AÇÃO: Atualizar configurações da sala
+  const updateRoomSettings = useCallback(async (newSettings: Partial<RoomSettings>) => {
+    if (!room) return;
+    try {
+      const updatedSettings = { ...room.settings, ...newSettings };
+      const { error: err } = await supabase
+        .from('rooms')
+        .update({ settings: updatedSettings })
+        .eq('id', room.id);
+
+      if (err) throw err;
+    } catch (err: unknown) {
+      console.error('Erro ao atualizar configurações da sala:', err);
     }
   }, [room]);
 
@@ -910,12 +976,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         processTeamVote,
         submitMissionVote,
         processMissionResult,
-        nextRound,
+        revealMissionVotes,
         restartGame,
         clearGame,
         clearReactState,
         loadRoomData,
         sendMessage,
+        executeAssassination,
+        updateRoomSettings,
       }}
     >
       {children}

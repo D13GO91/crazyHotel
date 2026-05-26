@@ -5,13 +5,17 @@ export type GameState =
   | 'TEAM_VOTE' 
   | 'MISSION_VOTE' 
   | 'MISSION_REVEAL' 
+  | 'ASSASSIN_CHOICE'
   | 'GAME_OVER';
 
-export type PlayerRole = 'GUEST' | 'THIEF';
+export type PlayerRole = 'GUEST' | 'THIEF' | 'MANAGER' | 'ASSASSIN';
 
 export interface RoomSettings {
   timer: number;
   maxPlayers: number;
+  gameMode?: 'NORMAL' | 'GERENTE_ASSASSINO';
+  assassination_target_id?: string;
+  assassination_success?: boolean;
 }
 
 export interface MissionHistoryEntry {

@@ -6,7 +6,8 @@ import Button from '../components/Button';
 import ChatPanel from '../components/ChatPanel';
 import { 
   Users, ShieldAlert, ShieldCheck, CheckCircle2, 
-  ThumbsUp, ThumbsDown, Zap, AlertTriangle, Eye, MessageCircle, X
+  ThumbsUp, ThumbsDown, Zap, AlertTriangle, Eye, MessageCircle, X,
+  RotateCcw, ArrowRight
 } from 'lucide-react';
 
 export default function PlayRoom() {
@@ -15,7 +16,8 @@ export default function PlayRoom() {
   const { 
     room, currentPlayer, players, loading, error, loadRoomData, 
     proposeTeam, submitTeamVote, submitMissionVote, clearGame,
-    messages, sendMessage
+    messages, sendMessage, startGame, restartGame, processMissionResult,
+    updateRoomSettings, executeAssassination
   } = useGame();
 
   const [isRoleFlipped, setIsRoleFlipped] = useState(false);
@@ -27,6 +29,7 @@ export default function PlayRoom() {
   const [hasVotedTeam, setHasVotedTeam] = useState(false);
   const [hasVotedMissionState, setHasVotedMissionState] = useState(false);
   const [showRoleReview, setShowRoleReview] = useState(false);
+  const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
 
   const [showChatModal, setShowChatModal] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -132,11 +135,15 @@ export default function PlayRoom() {
   }
 
   const activePlayers = players.filter(p => !p.is_host);
-  const isGuest = currentPlayer.role === 'GUEST';
-  const isThief = currentPlayer.role === 'THIEF';
+  const isRoomOwner = activePlayers[0]?.id === currentPlayer?.id;
   const isLeader = room.leader_id === currentPlayer.id;
 
-  // Ladrões conhecem os outros ladrões
+  const isGuestTeam = currentPlayer.role === 'GUEST' || currentPlayer.role === 'MANAGER';
+  const isThiefTeam = currentPlayer.role === 'THIEF' || currentPlayer.role === 'ASSASSIN';
+  
+  const showTeammates = currentPlayer.role === 'THIEF' || currentPlayer.role === 'ASSASSIN' || currentPlayer.role === 'MANAGER';
+
+  // Ladrões e Gerente conhecem quem são os ladrões (que no client aparecem com role === 'THIEF')
   const otherThieves = players.filter(p => p.role === 'THIEF' && p.id !== currentPlayer.id);
 
   // Tamanho exigido para a missão atual
@@ -200,10 +207,82 @@ export default function PlayRoom() {
             <Users size={36} className="role-guest-theme" />
           </div>
           <h2>Check-in Realizado!</h2>
-          <p style={{ marginBottom: '2rem', fontSize: '1.05rem', lineHeight: '1.5' }}>
-            Aguardando mais hóspedes entrarem. <br />
-            O jogo começará na TV assim que houver 5+ jogadores.
-          </p>
+          
+          {isRoomOwner ? (
+            <div style={{ marginBottom: '2.5rem', width: '100%' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.04)', marginBottom: '1.5rem', textAlign: 'left' }}>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.75rem', fontWeight: 600 }}>MODO DE JOGO</div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    onClick={() => updateRoomSettings({ gameMode: 'NORMAL' })}
+                    style={{
+                      flex: 1,
+                      padding: '0.6rem',
+                      background: (room.settings?.gameMode || 'NORMAL') === 'NORMAL' ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${(room.settings?.gameMode || 'NORMAL') === 'NORMAL' ? 'var(--accent)' : 'rgba(255,255,255,0.08)'}`,
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Normal
+                  </button>
+                  <button
+                    onClick={() => updateRoomSettings({ gameMode: 'GERENTE_ASSASSINO' })}
+                    style={{
+                      flex: 1,
+                      padding: '0.6rem',
+                      background: room.settings?.gameMode === 'GERENTE_ASSASSINO' ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(255,255,255,0.02)',
+                      border: `1px solid ${room.settings?.gameMode === 'GERENTE_ASSASSINO' ? 'var(--accent)' : 'rgba(255,255,255,0.08)'}`,
+                      borderRadius: '0.5rem',
+                      color: '#fff',
+                      fontSize: '0.85rem',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Gerente & Assassino
+                  </button>
+                </div>
+                <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', lineHeight: '1.4' }}>
+                  {(room.settings?.gameMode || 'NORMAL') === 'NORMAL' 
+                    ? 'Modo clássico: Hóspedes vs Ladrões.' 
+                    : 'Modo especial: Adiciona o Gerente (sabe quem são os ladrões) e o Assassino (pode assassinar o Gerente no final).'}
+                </p>
+              </div>
+
+              <Button 
+                onClick={startGame} 
+                disabled={activePlayers.length < 5} 
+                style={{ width: '100%', gap: '0.5rem' }}
+              >
+                Iniciar Jogo <Zap size={18} />
+              </Button>
+              {activePlayers.length < 5 && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--color-thief)', marginTop: '0.5rem' }}>
+                  É necessário no mínimo 5 jogadores para iniciar.
+                </div>
+              )}
+            </div>
+          ) : (
+            <div style={{ marginBottom: '2rem' }}>
+              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.85rem 1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.04)', marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Modo de Jogo:</span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent-light)' }}>
+                  {(room.settings?.gameMode || 'NORMAL') === 'NORMAL' ? 'Normal' : 'Gerente & Assassino'}
+                </span>
+              </div>
+              <p style={{ fontSize: '1.05rem', lineHeight: '1.5' }}>
+                {activePlayers.length >= 5 
+                  ? 'Aguardando o Dono da Sala iniciar o jogo...' 
+                  : 'Aguardando mais hóspedes entrarem...'}
+              </p>
+            </div>
+          )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: 'rgba(255,255,255,0.01)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.04)', marginBottom: '2rem' }}>
             <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)', fontWeight: 600 }}>JOGADORES CONECTADOS ({activePlayers.length})</div>
@@ -216,7 +295,7 @@ export default function PlayRoom() {
             </div>
           </div>
 
-          <Button variant="secondary" onClick={handleExitRoom}>
+          <Button variant="secondary" onClick={handleExitRoom} style={{ width: '100%' }}>
             Sair da Sala
           </Button>
         </GlassPanel>
@@ -241,13 +320,13 @@ export default function PlayRoom() {
               padding: '2rem 1.5rem',
               borderWidth: '2px',
               borderColor: isRoleFlipped 
-                ? (isGuest ? 'var(--color-guest)' : 'var(--color-thief)')
+                ? (isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)')
                 : 'var(--accent)',
               boxShadow: isRoleFlipped
-                ? (isGuest ? '0 0 20px var(--color-guest-glow)' : '0 0 20px var(--color-thief-glow)')
+                ? (isGuestTeam ? '0 0 20px var(--color-guest-glow)' : '0 0 20px var(--color-thief-glow)')
                 : '0 0 20px var(--accent-glow)',
               background: isRoleFlipped
-                ? (isGuest ? 'var(--bg-guest-glass)' : 'var(--bg-thief-glass)')
+                ? (isGuestTeam ? 'var(--bg-guest-glass)' : 'var(--bg-thief-glass)')
                 : 'rgba(18, 14, 36, 0.95)',
               transition: 'all 0.5s ease',
               borderRadius: '1.5rem',
@@ -267,7 +346,7 @@ export default function PlayRoom() {
             ) : (
               <div className="animate-reveal" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'space-between', width: '100%' }}>
                 <div>
-                  {isGuest ? (
+                  {isGuestTeam ? (
                     <ShieldCheck size={56} style={{ color: 'var(--color-guest)', marginBottom: '1rem' }} />
                   ) : (
                     <ShieldAlert size={56} style={{ color: 'var(--color-thief)', marginBottom: '1rem' }} />
@@ -276,26 +355,34 @@ export default function PlayRoom() {
                   <h3 style={{ 
                     fontSize: '2.25rem', 
                     fontWeight: 800, 
-                    color: isGuest ? 'var(--color-guest)' : 'var(--color-thief)',
-                    textShadow: isGuest ? '0 0 10px var(--color-guest-glow)' : '0 0 10px var(--color-thief-glow)',
+                    color: isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)',
+                    textShadow: isGuestTeam ? '0 0 10px var(--color-guest-glow)' : '0 0 10px var(--color-thief-glow)',
                     marginBottom: '1rem' 
                   }}>
-                    {isGuest ? 'HÓSPEDE' : 'LADRÃO'}
+                    {currentPlayer.role === 'MANAGER' ? 'GERENTE' :
+                     currentPlayer.role === 'ASSASSIN' ? 'ASSASSINO' :
+                     isGuestTeam ? 'HÓSPEDE' : 'LADRÃO'}
                   </h3>
                 </div>
 
                 <p style={{ fontSize: '0.95rem', color: 'var(--text-light)', lineHeight: '1.5' }}>
-                  {isGuest 
+                  {currentPlayer.role === 'MANAGER' 
+                    ? 'Você sabe quem são todos os ladrões e o assassino. Mas cuidado! Se a sua identidade for descoberta no fim da partida, os ladrões podem te assassinar para vencer!'
+                    : currentPlayer.role === 'ASSASSIN'
+                    ? 'Você é o Assassino. Se os hóspedes vencerem as missões, você terá a última chance de apontar quem é o Gerente para roubar a vitória!'
+                    : isGuestTeam 
                     ? 'Você quer que as missões tenham SUCESSO. Discuta e expulse os ladrões nas votações para vencer!'
                     : 'Você quer SABOTAR as missões. Minta, infiltre-se nas equipes e vote Fracasso em segredo.'}
                 </p>
 
-                {/* Thieves list (Resistance rule) */}
-                {isThief && (
-                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem 1rem', borderRadius: '0.5rem', border: '1px solid rgba(244, 63, 94, 0.2)', marginTop: '1rem', width: '100%' }}>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--color-thief)', fontWeight: 600 }}>OUTROS LADRÕES:</div>
+                {/* Teammates/Thieves list */}
+                {showTeammates && (
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem 1rem', borderRadius: '0.5rem', border: `1px solid ${currentPlayer.role === 'MANAGER' ? 'var(--color-guest)' : 'var(--color-thief)'}`, marginTop: '1rem', width: '100%' }}>
+                    <div style={{ fontSize: '0.8rem', color: currentPlayer.role === 'MANAGER' ? 'var(--color-guest)' : 'var(--color-thief)', fontWeight: 600 }}>
+                      {currentPlayer.role === 'MANAGER' ? 'SABOTADORES (LADRÕES & ASSASSINO):' : 'COMPANHEIROS DE EQUIPE:'}
+                    </div>
                     <div style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 700, marginTop: '0.25rem' }}>
-                      {otherThieves.length === 0 ? 'Você está sozinho!' : otherThieves.map(t => t.name).join(', ')}
+                      {otherThieves.length === 0 ? 'Não há outros!' : otherThieves.map(t => t.name).join(', ')}
                     </div>
                   </div>
                 )}
@@ -432,7 +519,7 @@ export default function PlayRoom() {
                       <Zap size={22} /> Votar SUCESSO
                     </Button>
                     
-                    {isThief ? (
+                    {isThiefTeam ? (
                       <Button 
                         onClick={() => handleMissionVoteSubmit('FAIL')}
                         style={{ background: 'linear-gradient(135deg, var(--color-thief) 0%, #e11d48 100%)', boxShadow: '0 4px 15px var(--color-thief-glow)', height: '70px', fontSize: '1.25rem', gap: '0.5rem' }}
@@ -476,19 +563,96 @@ export default function PlayRoom() {
         <GlassPanel style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
           <h2>Apuração Concluída</h2>
           <p style={{ margin: '1.5rem 0', fontSize: '1.05rem', color: 'var(--text-light)' }}>
-            A missão terminou!
+            Os votos estão sendo revelados na TV!
           </p>
-          <div style={{ background: 'rgba(255,255,255,0.01)', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.04)', color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
-            Olhe para a **Tela da TV** principal para ver os votos revelados de forma embaralhada e o resultado final da missão!
-          </div>
+          {isLeader ? (
+            <div style={{ marginTop: '2rem' }}>
+              <Button onClick={processMissionResult} style={{ width: '100%', gap: '0.5rem' }}>
+                Avançar Rodada <ArrowRight size={18} />
+              </Button>
+            </div>
+          ) : (
+            <div style={{ background: 'rgba(255,255,255,0.01)', padding: '1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.04)', color: 'var(--text-muted)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+              Olhe para a **Tela da TV** principal para ver os votos revelados de forma embaralhada.
+            </div>
+          )}
+        </GlassPanel>
+      )}
+
+      {room.state === 'ASSASSIN_CHOICE' && (
+        <GlassPanel style={{ padding: '2rem 1.25rem' }}>
+          {currentPlayer.role === 'ASSASSIN' ? (
+            <div>
+              <h2 style={{ fontSize: '1.5rem', textAlign: 'center', marginBottom: '0.25rem', color: 'var(--color-thief)' }}>Última Chance! 🔪</h2>
+              <p style={{ textAlign: 'center', fontSize: '0.95rem', color: 'var(--text-muted)', marginBottom: '1.5rem', lineHeight: '1.4' }}>
+                Os Hóspedes completaram 3 missões. Se você assassinar o **Gerente** correto, os Ladrões roubam a vitória! Selecione um jogador:
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                {players
+                  .filter(p => !p.is_host && p.role !== 'THIEF' && p.id !== currentPlayer.id)
+                  .map((player) => {
+                    const isSelected = selectedTargetId === player.id;
+                    return (
+                      <button
+                        key={player.id}
+                        onClick={() => setSelectedTargetId(player.id)}
+                        className="glass-panel"
+                        style={{
+                          width: '100%',
+                          padding: '0.8rem 1rem',
+                          textAlign: 'left',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          borderWidth: '1px',
+                          borderColor: isSelected ? 'var(--color-thief)' : 'var(--border-glass)',
+                          background: isSelected ? 'rgba(244, 63, 94, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                          borderRadius: '0.75rem',
+                          cursor: 'pointer',
+                          color: '#fff',
+                          fontWeight: isSelected ? 700 : 500
+                        }}
+                      >
+                        <span>{player.name}</span>
+                        <span>{isSelected ? '✔' : ''}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              <Button 
+                onClick={async () => {
+                  if (selectedTargetId) {
+                    await executeAssassination(selectedTargetId);
+                  }
+                }} 
+                disabled={!selectedTargetId}
+                style={{ width: '100%', background: 'var(--color-thief)', border: 'none', color: '#fff' }}
+              >
+                Confirmar Assassinato
+              </Button>
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+              <div className="animate-pulse" style={{ width: '60px', height: '60px', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--color-thief)', borderRadius: '50%', display: 'flex', alignItems: 'center', margin: '0 auto 1.5rem auto', justifyContent: 'center' }}>
+                🔪
+              </div>
+              <h3 style={{ color: 'var(--color-thief)', textShadow: '0 0 10px var(--color-thief-glow)', fontSize: '1.35rem', fontWeight: 800 }}>O Assassino está agindo!</h3>
+              <p style={{ fontSize: '0.95rem', color: 'var(--text-muted)', marginTop: '0.75rem', lineHeight: '1.6' }}>
+                Os Hóspedes atingiram 3 sucessos, mas a vitória ainda não está garantida! <br />
+                O Assassino tem a chance de apontar quem é o Gerente. Se ele acertar, os Ladrões vencem. Aguarde...
+              </p>
+            </div>
+          )}
         </GlassPanel>
       )}
 
       {room.state === 'GAME_OVER' && (
         <GlassPanel style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
           {(() => {
-            const guestsWon = room.score_guests >= 3;
-            const didIWin = (isGuest && guestsWon) || (isThief && !guestsWon);
+            const guestsWon = room.score_guests >= 3 && !room.settings?.assassination_success;
+            const didIWin = (isGuestTeam && guestsWon) || (isThiefTeam && !guestsWon);
 
             return (
               <div>
@@ -504,20 +668,38 @@ export default function PlayRoom() {
                 
                 <p style={{ fontSize: '1.05rem', color: 'var(--text-light)', marginBottom: '2rem' }}>
                   {didIWin 
-                    ? 'Excelente trabalho! Sua equipe venceu a partida de intrigas.'
-                    : 'Sua equipe foi sabotada e derrotada.'}
+                    ? (room.settings?.assassination_success 
+                      ? 'O Assassino descobriu o Gerente! Os Ladrões roubaram a vitória.'
+                      : 'Excelente trabalho! Sua equipe venceu a partida de intrigas.')
+                    : (room.settings?.assassination_success 
+                      ? 'Você conseguiu encontrar o Gerente! Vitória gloriosa para os Ladrões.'
+                      : 'Sua equipe foi sabotada e derrotada.')}
                 </p>
 
                 <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.04)', marginBottom: '2rem' }}>
                   <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>SEU PAPEL ERA</div>
-                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: isGuest ? 'var(--color-guest)' : 'var(--color-thief)' }}>
-                    {isGuest ? 'HÓSPEDE INOCENTE' : 'LADRÃO SABOTADOR'}
+                  <div style={{ fontSize: '1.25rem', fontWeight: 800, color: isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)' }}>
+                    {currentPlayer.role === 'MANAGER' ? 'GERENTE (LÍDER INOCENTE)' :
+                     currentPlayer.role === 'ASSASSIN' ? 'ASSASSINO (SABOTADOR)' :
+                     isGuestTeam ? 'HÓSPEDE INOCENTE' : 'LADRÃO SABOTADOR'}
                   </div>
                 </div>
 
-                <Button onClick={handleExitRoom}>
-                  Voltar ao Início
-                </Button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {isRoomOwner && (
+                    <Button onClick={restartGame} style={{ width: '100%', gap: '0.5rem' }}>
+                      Jogar Novamente <RotateCcw size={18} />
+                    </Button>
+                  )}
+                  <Button variant="secondary" onClick={handleExitRoom} style={{ width: '100%' }}>
+                    Voltar ao Início
+                  </Button>
+                  {!isRoomOwner && (
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Aguardando o Dono da Sala iniciar uma nova partida...
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })()}
@@ -547,12 +729,12 @@ export default function PlayRoom() {
             style={{
               width: '100%',
               maxWidth: '340px',
-              background: isGuest ? 'var(--bg-guest-glass)' : 'var(--bg-thief-glass)',
-              border: `2px solid ${isGuest ? 'var(--color-guest)' : 'var(--color-thief)'}`,
+              background: isGuestTeam ? 'var(--bg-guest-glass)' : 'var(--bg-thief-glass)',
+              border: `2px solid ${isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)'}`,
               borderRadius: '1.5rem',
               padding: '2.25rem 1.75rem',
               textAlign: 'center',
-              boxShadow: isGuest ? '0 0 25px var(--color-guest-glow)' : '0 0 25px var(--color-thief-glow)',
+              boxShadow: isGuestTeam ? '0 0 25px var(--color-guest-glow)' : '0 0 25px var(--color-thief-glow)',
               backdropFilter: 'blur(20px)',
               display: 'flex',
               flexDirection: 'column',
@@ -563,7 +745,7 @@ export default function PlayRoom() {
             onClick={(e) => e.stopPropagation()}
           >
             <div>
-              {isGuest ? (
+              {isGuestTeam ? (
                 <ShieldCheck size={56} style={{ color: 'var(--color-guest)', marginBottom: '0.75rem', display: 'inline-block' }} />
               ) : (
                 <ShieldAlert size={56} style={{ color: 'var(--color-thief)', marginBottom: '0.75rem', display: 'inline-block' }} />
@@ -572,26 +754,34 @@ export default function PlayRoom() {
               <h3 style={{ 
                 fontSize: '2.25rem', 
                 fontWeight: 800, 
-                color: isGuest ? 'var(--color-guest)' : 'var(--color-thief)',
-                textShadow: isGuest ? '0 0 10px var(--color-guest-glow)' : '0 0 10px var(--color-thief-glow)',
+                color: isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)',
+                textShadow: isGuestTeam ? '0 0 10px var(--color-guest-glow)' : '0 0 10px var(--color-thief-glow)',
                 marginBottom: '0.25rem' 
               }}>
-                {isGuest ? 'HÓSPEDE' : 'LADRÃO'}
+                {currentPlayer.role === 'MANAGER' ? 'GERENTE' :
+                 currentPlayer.role === 'ASSASSIN' ? 'ASSASSINO' :
+                 isGuestTeam ? 'HÓSPEDE' : 'LADRÃO'}
               </h3>
               <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>SEU PAPEL SECRETO</div>
             </div>
 
             <p style={{ fontSize: '0.95rem', color: 'var(--text-light)', lineHeight: '1.5' }}>
-              {isGuest 
+              {currentPlayer.role === 'MANAGER' 
+                ? 'Você sabe quem são todos os ladrões e o assassino. Cuidado para não ser descoberto no final da partida!'
+                : currentPlayer.role === 'ASSASSIN'
+                ? 'Você é o Assassino. Se os hóspedes vencerem as missões, você poderá apontar quem é o Gerente para roubar a vitória!'
+                : isGuestTeam 
                 ? 'Você quer que as missões tenham SUCESSO. Discuta e expulse os ladrões nas votações para vencer!'
                 : 'Você quer SABOTAR as missões. Minta, infiltre-se nas equipes e vote Fracasso em segredo.'}
             </p>
 
-            {isThief && (
-              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid rgba(244, 63, 94, 0.2)', textAlign: 'left' }}>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-thief)', fontWeight: 600 }}>OUTROS LADRÕES:</div>
+            {showTeammates && (
+              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: `1px solid ${currentPlayer.role === 'MANAGER' ? 'var(--color-guest)' : 'var(--color-thief)'}`, textAlign: 'left' }}>
+                <div style={{ fontSize: '0.75rem', color: currentPlayer.role === 'MANAGER' ? 'var(--color-guest)' : 'var(--color-thief)', fontWeight: 600 }}>
+                  {currentPlayer.role === 'MANAGER' ? 'SABOTADORES (LADRÕES & ASSASSINO):' : 'COMPANHEIROS DE EQUIPE:'}
+                </div>
                 <div style={{ fontSize: '0.9rem', color: '#fff', fontWeight: 700, marginTop: '0.25rem' }}>
-                  {otherThieves.length === 0 ? 'Você está sozinho!' : otherThieves.map(t => t.name).join(', ')}
+                  {otherThieves.length === 0 ? 'Não há outros!' : otherThieves.map(t => t.name).join(', ')}
                 </div>
               </div>
             )}

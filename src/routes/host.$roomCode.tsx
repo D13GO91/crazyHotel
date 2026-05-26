@@ -14,13 +14,12 @@ export default function HostRoom() {
   const navigate = useNavigate();
   const { 
     room, players, loading, error, loadRoomData, 
-    startGame, revealRolesDone, processTeamVote, processMissionResult, nextRound, restartGame,
-    messages
+    startGame, revealRolesDone, processTeamVote, processMissionResult, restartGame,
+    messages, revealMissionVotes
   } = useGame();
 
   const [revealCountdown, setRevealCountdown] = useState(10);
   const [revealedCards, setRevealedCards] = useState<boolean[]>([]);
-  const [isRevealing, setIsRevealing] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
   // Carrega os dados da sala ao montar
@@ -80,38 +79,32 @@ export default function HostRoom() {
 
     if (allVoted) {
       const timeout = setTimeout(() => {
-        processMissionResult();
+        revealMissionVotes();
       }, 2000);
       return () => clearTimeout(timeout);
     }
-  }, [players, room?.current_team, room?.state, processMissionResult]);
+  }, [players, room?.current_team, room?.state, revealMissionVotes]);
 
-  // Reseta estado das cartas ao entrar em MISSION_REVEAL
+  // Inicia a revelação automática das cartas ao entrar em MISSION_REVEAL
   useEffect(() => {
     if (room?.state === 'MISSION_REVEAL' && room.mission_votes) {
-      const timeoutId = setTimeout(() => {
-        setRevealedCards(new Array(room.mission_votes.length).fill(false));
-        setIsRevealing(false);
-      }, 0);
-      return () => clearTimeout(timeoutId);
+      setRevealedCards(new Array(room.mission_votes.length).fill(false));
+      
+      const revealTimeouts = room.mission_votes.map((_, idx) => {
+        return setTimeout(() => {
+          setRevealedCards(prev => {
+            const next = [...prev];
+            next[idx] = true;
+            return next;
+          });
+        }, 2000 + idx * 1200); // 2s delay, depois 1.2s por carta
+      });
+
+      return () => {
+        revealTimeouts.forEach(t => clearTimeout(t));
+      };
     }
   }, [room?.state, room?.mission_votes]);
-
-  // Revela as cartas uma a uma com delay
-  const handleRevealCards = () => {
-    if (!room?.mission_votes) return;
-    setIsRevealing(true);
-    
-    room.mission_votes.forEach((_, idx) => {
-      setTimeout(() => {
-        setRevealedCards(prev => {
-          const next = [...prev];
-          next[idx] = true;
-          return next;
-        });
-      }, (idx + 1) * 1200); // Revela a cada 1.2 segundos
-    });
-  };
 
   if (loading && !room) {
     return (
@@ -601,14 +594,8 @@ export default function HostRoom() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'center', gap: '1.5rem', maxWidth: '400px', margin: '0 auto' }}>
-                {!isRevealing && (
-                  <Button onClick={handleRevealCards} style={{ fontSize: '1.1rem', padding: '0.85rem 1.75rem' }}>
-                    Revelar Cartas
-                  </Button>
-                )}
-                
                 {revealedCards.every(c => c) && (
-                  <Button onClick={nextRound} style={{ gap: '0.5rem', fontSize: '1.1rem', padding: '0.85rem 1.75rem' }}>
+                  <Button onClick={processMissionResult} style={{ gap: '0.5rem', fontSize: '1.1rem', padding: '0.85rem 1.75rem' }}>
                     Próxima Rodada <ArrowRight size={18} />
                   </Button>
                 )}
@@ -616,10 +603,32 @@ export default function HostRoom() {
             </GlassPanel>
           )}
 
+          {room.state === 'ASSASSIN_CHOICE' && (
+            <GlassPanel className="host-panel" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
+              <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(244, 63, 94, 0.08)', borderRadius: '50%', marginBottom: '1.5rem', border: '1px solid rgba(244, 63, 94, 0.15)', animation: 'pulse 2s infinite' }}>
+                <ShieldAlert size={48} style={{ color: 'var(--color-thief)' }} />
+              </div>
+              <span style={{ fontSize: '0.9rem', color: 'var(--color-thief)', letterSpacing: '0.3em', fontWeight: 700, display: 'block', textShadow: '0 0 10px var(--color-thief-glow)' }}>VEREDITO FINAL</span>
+              <h2 style={{ fontSize: '2.5rem', fontWeight: 800, marginTop: '0.5rem', marginBottom: '1.5rem', lineHeight: '1.2' }}>A Caçada ao Gerente</h2>
+              
+              <p style={{ fontSize: '1.2rem', color: 'var(--text-light)', maxWidth: '600px', margin: '0 auto 2.5rem auto', lineHeight: '1.6' }}>
+                Os Hóspedes completaram 3 missões com sucesso! <br />
+                No entanto, o **Assassino** tem uma última chance de identificar o **Gerente**. <br />
+                Se ele acertar, os Ladrões roubam a vitória!
+              </p>
+              
+              <div style={{ background: 'rgba(255,255,255,0.01)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.04)', display: 'inline-block' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>
+                  Aguardando a decisão do Assassino no celular...
+                </span>
+              </div>
+            </GlassPanel>
+          )}
+
           {room.state === 'GAME_OVER' && (
             <GlassPanel className="host-panel" style={{ padding: '2rem' }}>
               {(() => {
-                const guestsWon = room.score_guests >= 3;
+                const guestsWon = room.score_guests >= 3 && !room.settings?.assassination_success;
                 return (
                   <div>
                     <div style={{ display: 'inline-flex', padding: '0.75rem', background: 'rgba(var(--accent-rgb), 0.1)', borderRadius: '50%', marginBottom: '0.75rem' }}>
@@ -638,17 +647,34 @@ export default function HostRoom() {
                       {guestsWon ? 'VITÓRIA DOS HÓSPEDES!' : 'VITÓRIA DOS LADRÕES!'}
                     </h2>
 
-                    <div style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginBottom: '1.5rem', maxWidth: '600px', margin: '0 auto 1.5rem auto' }}>
-                      {guestsWon 
-                        ? 'Os Hóspedes inocentes descobriram as sabotagens e protegeram o Crazy Hotel de todos os Ladrões!' 
-                        : 'Os Ladrões infiltrados sabortaram 3 missões com sucesso e assumiram o controle do Crazy Hotel!'}
+                    <div style={{ fontSize: '1.1rem', color: 'var(--text-muted)', marginBottom: '1.5rem', maxWidth: '600px', margin: '0 auto 1.5rem auto', lineHeight: '1.6' }}>
+                      {room.settings?.assassination_success ? (
+                        <>
+                          O Assassino identificou corretamente o <strong>Gerente</strong> ({
+                            activePlayers.find(p => p.id === room.settings?.assassination_target_id)?.name || 'alvo'
+                          })! Os Ladrões executaram a emboscada perfeita e ganharam a partida!
+                        </>
+                      ) : room.settings?.assassination_target_id ? (
+                        <>
+                          O Assassino tentou eliminar {
+                            activePlayers.find(p => p.id === room.settings?.assassination_target_id)?.name || 'alvo'
+                          }, mas errou! O alvo não era o Gerente. Os Hóspedes estão a salvo e ganharam a partida!
+                        </>
+                      ) : guestsWon ? (
+                        'Os Hóspedes inocentes descobriram as sabotagens e protegeram o Crazy Hotel de todos os Ladrões!'
+                      ) : (
+                        'Os Ladrões infiltrados sabotaram 3 missões com sucesso e assumiram o controle do Crazy Hotel!'
+                      )}
                     </div>
 
                     {/* Role reveal */}
                     <h3 style={{ fontSize: '1.25rem', color: 'var(--text-light)', marginBottom: '1rem', textAlign: 'left', maxWidth: '600px', margin: '0 auto 1rem auto' }}>REVELAÇÃO DAS IDENTIDADES</h3>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxWidth: '600px', margin: '0 auto 1.5rem auto', maxHeight: '200px', overflowY: 'auto', paddingRight: '0.25rem' }}>
                       {activePlayers.map((player) => {
-                        const isThief = player.role === 'THIEF';
+                        const isThiefTeam = player.role === 'THIEF' || player.role === 'ASSASSIN';
+                        const roleLabel = player.role === 'MANAGER' ? 'GERENTE 👑' :
+                                          player.role === 'ASSASSIN' ? 'ASSASSINO 🔪' :
+                                          player.role === 'THIEF' ? 'LADRÃO' : 'HÓSPEDE';
                         return (
                           <div 
                             key={player.id} 
@@ -658,18 +684,18 @@ export default function HostRoom() {
                               display: 'flex', 
                               alignItems: 'center', 
                               justifyContent: 'space-between',
-                              borderColor: isThief ? 'var(--border-thief)' : 'var(--border-guest)',
-                              background: isThief ? 'var(--bg-thief-glass)' : 'var(--bg-guest-glass)'
+                              borderColor: isThiefTeam ? 'var(--border-thief)' : 'var(--border-guest)',
+                              background: isThiefTeam ? 'var(--bg-thief-glass)' : 'var(--bg-guest-glass)'
                             }}
                           >
                             <span style={{ fontSize: '1.05rem', fontWeight: 600 }}>{player.name}</span>
                             <span style={{ 
                               fontWeight: 'bold', 
-                              color: isThief ? 'var(--color-thief)' : 'var(--color-guest)',
-                              textShadow: isThief ? '0 0 5px var(--color-thief-glow)' : '0 0 5px var(--color-guest-glow)',
+                              color: isThiefTeam ? 'var(--color-thief)' : 'var(--color-guest)',
+                              textShadow: isThiefTeam ? '0 0 5px var(--color-thief-glow)' : '0 0 5px var(--color-guest-glow)',
                               fontSize: '0.95rem'
                             }}>
-                              {isThief ? 'LADRÃO' : 'HÓSPEDE'}
+                              {roleLabel}
                             </span>
                           </div>
                         );
