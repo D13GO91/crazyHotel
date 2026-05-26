@@ -319,15 +319,9 @@ export default function PlayRoom() {
               alignItems: 'center',
               padding: '2rem 1.5rem',
               borderWidth: '2px',
-              borderColor: isRoleFlipped 
-                ? (isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)')
-                : 'var(--accent)',
-              boxShadow: isRoleFlipped
-                ? (isGuestTeam ? '0 0 20px var(--color-guest-glow)' : '0 0 20px var(--color-thief-glow)')
-                : '0 0 20px var(--accent-glow)',
-              background: isRoleFlipped
-                ? (isGuestTeam ? 'var(--bg-guest-glass)' : 'var(--bg-thief-glass)')
-                : 'rgba(18, 14, 36, 0.95)',
+              borderColor: 'var(--accent)',
+              boxShadow: '0 0 20px var(--accent-glow)',
+              background: 'rgba(24, 23, 20, 0.98)',
               transition: 'all 0.5s ease',
               borderRadius: '1.5rem',
               textAlign: 'center'
@@ -356,7 +350,6 @@ export default function PlayRoom() {
                     fontSize: '2.25rem', 
                     fontWeight: 800, 
                     color: isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)',
-                    textShadow: isGuestTeam ? '0 0 10px var(--color-guest-glow)' : '0 0 10px var(--color-thief-glow)',
                     marginBottom: '1rem' 
                   }}>
                     {currentPlayer.role === 'MANAGER' ? 'GERENTE' :
@@ -377,7 +370,7 @@ export default function PlayRoom() {
 
                 {/* Teammates/Thieves list */}
                 {showTeammates && (
-                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem 1rem', borderRadius: '0.5rem', border: `1px solid ${currentPlayer.role === 'MANAGER' ? 'var(--color-guest)' : 'var(--color-thief)'}`, marginTop: '1rem', width: '100%' }}>
+                  <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.5rem 1rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.08)', marginTop: '1rem', width: '100%' }}>
                     <div style={{ fontSize: '0.8rem', color: currentPlayer.role === 'MANAGER' ? 'var(--color-guest)' : 'var(--color-thief)', fontWeight: 600 }}>
                       {currentPlayer.role === 'MANAGER' ? 'SABOTADORES (LADRÕES & ASSASSINO):' : 'COMPANHEIROS DE EQUIPE:'}
                     </div>
@@ -519,18 +512,18 @@ export default function PlayRoom() {
                       <Zap size={22} /> Votar SUCESSO
                     </Button>
                     
-                    {isThiefTeam ? (
-                      <Button 
-                        onClick={() => handleMissionVoteSubmit('FAIL')}
-                        style={{ background: 'linear-gradient(135deg, var(--color-thief) 0%, #e11d48 100%)', boxShadow: '0 4px 15px var(--color-thief-glow)', height: '70px', fontSize: '1.25rem', gap: '0.5rem' }}
-                      >
-                        <ShieldAlert size={22} /> Votar FRACASSO
-                      </Button>
-                    ) : (
-                      <div style={{ textAlign: 'center', padding: '1rem', border: '1px dashed rgba(255,255,255,0.06)', borderRadius: '0.75rem', color: 'var(--text-dark)', fontSize: '0.9rem', fontWeight: 600 }}>
-                        Como Hóspede inocente, você só pode votar por SUCESSO.
-                      </div>
-                    )}
+                    <Button 
+                      onClick={() => {
+                        if (isThiefTeam) {
+                          handleMissionVoteSubmit('FAIL');
+                        } else {
+                          alert("Como Hóspede inocente, você só pode votar por SUCESSO.");
+                        }
+                      }}
+                      style={{ background: 'linear-gradient(135deg, var(--color-thief) 0%, #e11d48 100%)', boxShadow: '0 4px 15px var(--color-thief-glow)', height: '70px', fontSize: '1.25rem', gap: '0.5rem' }}
+                    >
+                      <ShieldAlert size={22} /> Votar FRACASSO
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -715,7 +708,7 @@ export default function PlayRoom() {
             left: 0,
             right: 0,
             bottom: 0,
-            background: 'rgba(6, 4, 13, 0.92)',
+            background: 'rgba(8, 8, 8, 0.92)',
             backdropFilter: 'blur(10px)',
             zIndex: 1000,
             display: 'flex',
@@ -729,12 +722,12 @@ export default function PlayRoom() {
             style={{
               width: '100%',
               maxWidth: '340px',
-              background: isGuestTeam ? 'var(--bg-guest-glass)' : 'var(--bg-thief-glass)',
-              border: `2px solid ${isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)'}`,
+              background: 'rgba(24, 23, 20, 0.98)',
+              border: '2px solid var(--accent)',
               borderRadius: '1.5rem',
               padding: '2.25rem 1.75rem',
               textAlign: 'center',
-              boxShadow: isGuestTeam ? '0 0 25px var(--color-guest-glow)' : '0 0 25px var(--color-thief-glow)',
+              boxShadow: '0 0 25px var(--accent-glow)',
               backdropFilter: 'blur(20px)',
               display: 'flex',
               flexDirection: 'column',
@@ -755,7 +748,6 @@ export default function PlayRoom() {
                 fontSize: '2.25rem', 
                 fontWeight: 800, 
                 color: isGuestTeam ? 'var(--color-guest)' : 'var(--color-thief)',
-                textShadow: isGuestTeam ? '0 0 10px var(--color-guest-glow)' : '0 0 10px var(--color-thief-glow)',
                 marginBottom: '0.25rem' 
               }}>
                 {currentPlayer.role === 'MANAGER' ? 'GERENTE' :
@@ -776,7 +768,7 @@ export default function PlayRoom() {
             </p>
 
             {showTeammates && (
-              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: `1px solid ${currentPlayer.role === 'MANAGER' ? 'var(--color-guest)' : 'var(--color-thief)'}`, textAlign: 'left' }}>
+              <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.75rem 1rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'left' }}>
                 <div style={{ fontSize: '0.75rem', color: currentPlayer.role === 'MANAGER' ? 'var(--color-guest)' : 'var(--color-thief)', fontWeight: 600 }}>
                   {currentPlayer.role === 'MANAGER' ? 'SABOTADORES (LADRÕES & ASSASSINO):' : 'COMPANHEIROS DE EQUIPE:'}
                 </div>
