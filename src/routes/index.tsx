@@ -96,7 +96,8 @@ export default function Home() {
             width: '100%', 
             maxWidth: '320px', 
             borderRadius: '1.5rem', 
-            marginBottom: '1.5rem'
+            marginBottom: '1.5rem',
+            mixBlendMode: 'screen'
           }} 
         />
         <p style={{ fontSize: '1.125rem' }}>Um jogo de intriga, sabotagem e dedução social.</p>
