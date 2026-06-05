@@ -105,8 +105,8 @@ export default function PlayRoom() {
     await submitMissionVote(vote);
   };
 
-  const handleExitRoom = () => {
-    clearGame();
+  const handleExitRoom = async () => {
+    await clearGame();
     navigate({ to: '/' });
   };
 

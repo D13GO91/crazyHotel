@@ -35,8 +35,8 @@ export default function Home() {
     }
   };
 
-  const handleAbandonSession = () => {
-    clearGame();
+  const handleAbandonSession = async () => {
+    await clearGame();
     setActiveSession(null);
   };
 

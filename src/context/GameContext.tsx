@@ -21,7 +21,7 @@ interface GameContextProps {
   processMissionResult: () => Promise<void>;
   revealMissionVotes: () => Promise<void>;
   restartGame: () => Promise<void>;
-  clearGame: () => void;
+  clearGame: () => Promise<void>;
   clearReactState: () => void;
   loadRoomData: (code: string, isHostPage: boolean) => Promise<void>;
   sendMessage: (content: string) => Promise<void>;
@@ -67,8 +67,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Limpa todos os estados locais e cache
-  const clearGame = useCallback(() => {
+  // Limpa todos os estados locais e cache, e remove o jogador do banco
+  const clearGame = useCallback(async () => {
+    const storedPlayerId = localStorage.getItem('crazyhotel_player_id');
+    if (storedPlayerId) {
+      try {
+        await supabase
+          .from('players')
+          .delete()
+          .eq('id', storedPlayerId);
+      } catch (err) {
+        console.error('Erro ao remover jogador ao sair:', err);
+      }
+    }
     setRoom(null);
     setPlayers([]);
     setCurrentPlayer(null);
@@ -857,7 +868,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       // 1. Remove os papéis antigos da tabela privada player_roles
-      const playerIds = players.map((p) => p.id);
+      // Buscamos os jogadores atuais da sala no banco para evitar dependência obsoleta do estado React
+      const { data: roomPlayers } = await supabase
+        .from('players')
+        .select('id')
+        .eq('room_id', room.id);
+
+      const playerIds = roomPlayers?.map((p) => p.id) || [];
       if (playerIds.length > 0) {
         await supabase
           .from('player_roles')
