@@ -4,7 +4,7 @@ import { useGame } from '../context/GameContext';
 import GlassPanel from '../components/GlassPanel';
 import Button from '../components/Button';
 import Input from '../components/Input';
-import { Users, Tv, ShieldAlert } from 'lucide-react';
+import { Users, Tv } from 'lucide-react';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -89,13 +89,18 @@ export default function Home() {
   return (
     <div className="home-container animate-float" style={{ padding: '2rem 1rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-        <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(var(--accent-rgb), 0.1)', borderRadius: '50%', marginBottom: '1rem', border: '1px solid rgba(var(--accent-rgb), 0.2)' }}>
-          <ShieldAlert size={48} style={{ color: 'var(--accent-light)' }} />
-        </div>
-        <h1>HÓSPEDES</h1>
-        <div style={{ fontSize: '1.25rem', fontWeight: 'bold', letterSpacing: '0.3em', color: 'var(--color-thief)', marginTop: '-0.5rem', marginBottom: '0.5rem' }}>
-          VS. LADRÕES
-        </div>
+        <img 
+          src="/logo.jpg" 
+          alt="Crazy Hotel Logo" 
+          style={{ 
+            width: '100%', 
+            maxWidth: '320px', 
+            borderRadius: '1.5rem', 
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 15px rgba(var(--accent-rgb), 0.25)',
+            border: '1px solid rgba(var(--accent-rgb), 0.2)',
+            marginBottom: '1.5rem'
+          }} 
+        />
         <p style={{ fontSize: '1.125rem' }}>Um jogo de intriga, sabotagem e dedução social.</p>
       </div>
 
