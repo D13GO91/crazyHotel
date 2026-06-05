@@ -96,8 +96,6 @@ export default function Home() {
             width: '100%', 
             maxWidth: '320px', 
             borderRadius: '1.5rem', 
-            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 15px rgba(var(--accent-rgb), 0.25)',
-            border: '1px solid rgba(var(--accent-rgb), 0.2)',
             marginBottom: '1.5rem'
           }} 
         />
