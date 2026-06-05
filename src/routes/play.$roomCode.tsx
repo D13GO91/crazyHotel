@@ -203,7 +203,7 @@ export default function PlayRoom() {
       {/* State views */}
       {room.state === 'LOBBY' && (
         <GlassPanel style={{ textAlign: 'center', padding: '2.5rem 1.5rem' }}>
-          <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(16, 185, 129, 0.08)', borderRadius: '50%', marginBottom: '1.25rem', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+          <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(var(--color-guest-rgb), 0.08)', borderRadius: '50%', marginBottom: '1.25rem', border: '1px solid rgba(var(--color-guest-rgb), 0.15)' }}>
             <Users size={36} className="role-guest-theme" />
           </div>
           <h2>Check-in Realizado!</h2>
@@ -473,7 +473,7 @@ export default function PlayRoom() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                <Button onClick={() => handleTeamVoteSubmit('APPROVE')} style={{ background: 'linear-gradient(135deg, var(--color-guest) 0%, #059669 100%)', boxShadow: '0 4px 15px var(--color-guest-glow)', gap: '0.5rem' }}>
+                <Button onClick={() => handleTeamVoteSubmit('APPROVE')} style={{ background: 'linear-gradient(135deg, var(--color-guest) 0%, #0284c7 100%)', boxShadow: '0 4px 15px var(--color-guest-glow)', gap: '0.5rem' }}>
                   <ThumbsUp size={20} /> Aprovar Time
                 </Button>
                 <Button onClick={() => handleTeamVoteSubmit('REJECT')} style={{ background: 'linear-gradient(135deg, var(--color-thief) 0%, #e11d48 100%)', boxShadow: '0 4px 15px var(--color-thief-glow)', gap: '0.5rem' }}>
@@ -507,7 +507,7 @@ export default function PlayRoom() {
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                     <Button 
                       onClick={() => handleMissionVoteSubmit('SUCCESS')}
-                      style={{ background: 'linear-gradient(135deg, var(--color-guest) 0%, #059669 100%)', boxShadow: '0 4px 15px var(--color-guest-glow)', height: '70px', fontSize: '1.25rem', gap: '0.5rem' }}
+                      style={{ background: 'linear-gradient(135deg, var(--color-guest) 0%, #0284c7 100%)', boxShadow: '0 4px 15px var(--color-guest-glow)', height: '70px', fontSize: '1.25rem', gap: '0.5rem' }}
                     >
                       <Zap size={22} /> Votar SUCESSO
                     </Button>
@@ -600,7 +600,7 @@ export default function PlayRoom() {
                           justifyContent: 'space-between',
                           borderWidth: '1px',
                           borderColor: isSelected ? 'var(--color-thief)' : 'var(--border-glass)',
-                          background: isSelected ? 'rgba(244, 63, 94, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                          background: isSelected ? 'rgba(var(--color-thief-rgb), 0.12)' : 'rgba(255, 255, 255, 0.02)',
                           borderRadius: '0.75rem',
                           cursor: 'pointer',
                           color: '#fff',
@@ -628,7 +628,7 @@ export default function PlayRoom() {
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-              <div className="animate-pulse" style={{ width: '60px', height: '60px', background: 'rgba(244, 63, 94, 0.1)', border: '1px solid var(--color-thief)', borderRadius: '50%', display: 'flex', alignItems: 'center', margin: '0 auto 1.5rem auto', justifyContent: 'center' }}>
+              <div className="animate-pulse" style={{ width: '60px', height: '60px', background: 'rgba(var(--color-thief-rgb), 0.1)', border: '1px solid var(--color-thief)', borderRadius: '50%', display: 'flex', alignItems: 'center', margin: '0 auto 1.5rem auto', justifyContent: 'center' }}>
                 🔪
               </div>
               <h3 style={{ color: 'var(--color-thief)', textShadow: '0 0 10px var(--color-thief-glow)', fontSize: '1.35rem', fontWeight: 800 }}>O Assassino está agindo!</h3>

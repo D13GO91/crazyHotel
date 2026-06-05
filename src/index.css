@@ -22,17 +22,19 @@
   --accent-glow: rgba(212, 175, 55, 0.35);
   --accent-rgb: 212, 175, 55;
 
-  /* Role: Hóspede (Guest) - Emerald Theme */
-  --color-guest: #10b981;
-  --color-guest-glow: rgba(16, 185, 129, 0.4);
-  --bg-guest-glass: rgba(16, 185, 129, 0.05);
-  --border-guest: rgba(16, 185, 129, 0.25);
+  /* Role: Hóspede (Guest) - Electric Cyan/Blue Theme */
+  --color-guest: #00d2ff;
+  --color-guest-rgb: 0, 210, 255;
+  --color-guest-glow: rgba(0, 210, 255, 0.4);
+  --bg-guest-glass: rgba(0, 210, 255, 0.05);
+  --border-guest: rgba(0, 210, 255, 0.25);
 
-  /* Role: Ladrão (Thief) - Crimson/Rose Theme */
-  --color-thief: #f43f5e;
-  --color-thief-glow: rgba(244, 63, 94, 0.4);
-  --bg-thief-glass: rgba(244, 63, 94, 0.05);
-  --border-thief: rgba(244, 63, 94, 0.25);
+  /* Role: Ladrão (Thief) - Dark Crimson Red Theme */
+  --color-thief: #ff2a4b;
+  --color-thief-rgb: 255, 42, 75;
+  --color-thief-glow: rgba(255, 42, 75, 0.45);
+  --bg-thief-glass: rgba(255, 42, 75, 0.06);
+  --border-thief: rgba(255, 42, 75, 0.3);
 
   /* Shadows and Transitions */
   --shadow-neon: 0 0 15px var(--accent-glow);
@@ -50,8 +52,13 @@
 
 body {
   font-family: var(--font-sans);
-  background: var(--bg-space);
-  background-image: var(--bg-nebula);
+  background-color: #030205;
+  background-image: 
+    radial-gradient(circle at center, rgba(12, 10, 18, 0.65) 0%, #060409 100%),
+    url('/background.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
   background-attachment: fixed;
   color: var(--text-normal);
   min-height: 100vh;

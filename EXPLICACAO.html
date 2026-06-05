@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Como Funciona: Crazy Hotel (Social Deduction Game)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --font-sans: 'Outfit', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      /* Color Palette (Luxury Dark & Gold + Accent Roles) */
+      --bg-main: #08070b;
+      --bg-card: rgba(20, 19, 24, 0.75);
+      --bg-card-hover: rgba(28, 27, 33, 0.9);
+      --border-glass: rgba(255, 255, 255, 0.08);
+      --border-gold: rgba(212, 175, 55, 0.3);
+      --border-gold-focus: rgba(255, 215, 0, 0.7);
+      
+      --accent-gold: #d4af37;
+      --accent-gold-light: #ffd700;
+      --accent-gold-glow: rgba(212, 175, 55, 0.2);
+
+      --color-guest: #10b981;
+      --color-thief: #f43f5e;
+      --color-manager: #3b82f6;
+      --color-assassin: #8b5cf6;
+
+      --text-light: #f3f4f6;
+      --text-normal: #c5c7ca;
+      --text-muted: #8e9094;
+      
+      --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg-main);
+      background-image: radial-gradient(circle at 50% 10%, #1a1722 0%, #08070b 70%);
+      background-attachment: fixed;
+      color: var(--text-normal);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    header {
+      padding: 3rem 2rem 2rem 2rem;
+      text-align: center;
+      border-bottom: 1px solid var(--border-glass);
+      background: rgba(8, 7, 11, 0.6);
+      backdrop-filter: blur(10px);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.35rem 0.8rem;
+      border-radius: 2rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 1rem;
+    }
+
+    .badge-primary {
+      background: rgba(212, 175, 55, 0.15);
+      border: 1px solid var(--accent-gold);
+      color: var(--accent-gold-light);
+    }
+
+    .badge-role-guest {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid var(--color-guest);
+      color: #34d399;
+    }
+
+    .badge-role-thief {
+      background: rgba(244, 63, 94, 0.15);
+      border: 1px solid var(--color-thief);
+      color: #fb7185;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, #ffffff 30%, #ebd07b 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 1.25rem;
+      color: var(--text-muted);
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    .container {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      min-height: calc(100vh - 180px);
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    /* Sidebar Navigation */
+    aside {
+      border-right: 1px solid var(--border-glass);
+      padding: 2rem 1.5rem;
+      background: rgba(10, 9, 14, 0.4);
+      position: sticky;
+      top: 0;
+      height: calc(100vh - 180px);
+      overflow-y: auto;
+    }
+
+    .nav-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 1rem;
+      padding-left: 0.5rem;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .nav-item {
+      display: block;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      color: var(--text-normal);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text-light);
+    }
+
+    .nav-item.active {
+      background: rgba(212, 175, 55, 0.08);
+      border-color: rgba(212, 175, 55, 0.25);
+      color: var(--accent-gold-light);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Content Area */
+    main {
+      padding: 3rem 4rem;
+      max-height: calc(100vh - 180px);
+      overflow-y: auto;
+      scroll-behavior: smooth;
+    }
+
+    .section-content {
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .section-content.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    h2 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: var(--text-light);
+      margin-bottom: 1.5rem;
+      border-bottom: 2px solid var(--border-glass);
+      padding-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    p {
+      margin-bottom: 1.25rem;
+      font-size: 1.05rem;
+      color: var(--text-normal);
+    }
+
+    p strong {
+      color: var(--text-light);
+    }
+
+    .alert {
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 4px solid var(--accent-gold);
+      border-radius: 0.5rem;
+      padding: 1.25rem;
+      margin: 1.5rem 0;
+    }
+
+    .alert-info {
+      border-left-color: var(--color-manager);
+      background: rgba(59, 130, 246, 0.03);
+    }
+
+    .alert-danger {
+      border-left-color: var(--color-thief);
+      background: rgba(244, 63, 94, 0.03);
+    }
+
+    .alert-title {
+      font-weight: 700;
+      color: var(--text-light);
+      margin-bottom: 0.25rem;
+      font-size: 1.1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Grid layout inside sections */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin: 2rem 0;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-glass);
+      border-radius: 1rem;
+      padding: 1.75rem;
+      transition: var(--transition-smooth);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    }
+
+    .card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-gold);
+      background: var(--bg-card-hover);
+      box-shadow: 0 8px 30px rgba(212, 175, 55, 0.05);
+    }
+
+    .card h3 {
+      font-size: 1.35rem;
+      color: var(--text-light);
+      margin-bottom: 0.75rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    /* Code Block Styles */
+    .code-container {
+      margin: 1.5rem 0;
+      background: #0f0e13;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+    }
+
+    .code-header {
+      background: rgba(255, 255, 255, 0.02);
+      padding: 0.75rem 1.25rem;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .code-lang {
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--accent-gold-light);
+    }
+
+    pre {
+      padding: 1.25rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+    }
+
+    /* Simple syntax highlighting classes */
+    .keyword { color: #f43f5e; font-weight: 600; }
+    .function { color: #60a5fa; }
+    .string { color: #34d399; }
+    .comment { color: #6b7280; font-style: italic; }
+    .number { color: #fbbf24; }
+    .type { color: #a78bfa; }
+
+    /* SVG Diagram Styling */
+    .diagram-container {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid var(--border-glass);
+      border-radius: 1rem;
+      padding: 2rem;
+      text-align: center;
+      margin: 2rem 0;
+      display: flex;
+      justify-content: center;
+    }
+
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* List styling */
+    ul {
+      margin-left: 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+
+    /* Quiz styling */
+    .quiz-card {
+      background: linear-gradient(135deg, rgba(20,19,24,0.95) 0%, rgba(35,32,43,0.95) 100%);
+      border: 2px solid var(--accent-gold);
+      border-radius: 1.25rem;
+      padding: 2.5rem;
+      box-shadow: 0 10px 40px rgba(212, 175, 55, 0.08);
+      margin-top: 2rem;
+    }
+
+    .quiz-question {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 1.5rem;
+    }
+
+    .quiz-options {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+
+    .quiz-option {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-glass);
+      padding: 1rem 1.25rem;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      color: var(--text-normal);
+      font-weight: 500;
+      text-align: left;
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      transition: var(--transition-smooth);
+    }
+
+    .quiz-option:hover {
+      background: rgba(212, 175, 55, 0.05);
+      border-color: rgba(212, 175, 55, 0.4);
+      color: #fff;
+    }
+
+    .quiz-option.correct {
+      background: rgba(16, 185, 129, 0.12) !important;
+      border-color: var(--color-guest) !important;
+      color: #fff !important;
+      font-weight: 600;
+    }
+
+    .quiz-option.incorrect {
+      background: rgba(244, 63, 94, 0.12) !important;
+      border-color: var(--color-thief) !important;
+      color: #fff !important;
+    }
+
+    .quiz-feedback {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 0.5rem;
+      padding: 1rem 1.25rem;
+      font-size: 0.95rem;
+      line-height: 1.5;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .quiz-feedback.show {
+      display: block;
+    }
+
+    .btn-quiz-next {
+      background: linear-gradient(135deg, var(--accent-gold) 0%, #9a7611 100%);
+      color: #fff;
+      font-family: var(--font-sans);
+      font-size: 1rem;
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      transition: var(--transition-smooth);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      float: right;
+    }
+
+    .btn-quiz-next:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 15px var(--accent-gold-glow);
+    }
+
+    .quiz-score-container {
+      text-align: center;
+      display: none;
+      animation: fadeIn 0.4s ease;
+    }
+
+    .quiz-score-num {
+      font-size: 4rem;
+      font-weight: 800;
+      color: var(--accent-gold-light);
+      margin: 1rem 0;
+    }
+
+    .btn-restart-quiz {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-glass);
+      color: #fff;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      padding: 0.75rem 1.5rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      margin-top: 1rem;
+      transition: var(--transition-smooth);
+    }
+
+    .btn-restart-quiz:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Footer */
+    footer {
+      padding: 2.5rem;
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      border-top: 1px solid var(--border-glass);
+      background: rgba(8, 7, 11, 0.8);
+    }
+
+    /* Responsive styling */
+    @media (max-width: 992px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+
+      aside {
+        height: auto;
+        position: relative;
+        border-right: none;
+        border-bottom: 1px solid var(--border-glass);
+        padding: 1.5rem;
+      }
+
+      main {
+        padding: 2rem;
+        max-height: none;
+        overflow-y: visible;
+      }
+
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <span class="badge badge-primary">Guia de Engenharia</span>
+    <h1>Arquitetura &amp; Segurança do Crazy Hotel</h1>
+    <div class="subtitle">
+      Aprenda em detalhes como este jogo multiplayer em tempo real foi construído usando React 19, Supabase, PostgreSQL e TanStack Router.
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- Navegação Lateral -->
+    <aside>
+      <div class="nav-title">Navegação</div>
+      <ul class="nav-list">
+        <li><a class="nav-item active" data-target="overview">1. Visão Geral</a></li>
+        <li><a class="nav-item" data-target="database">2. Banco &amp; Segurança</a></li>
+        <li><a class="nav-item" data-target="realtime">3. Sincronização Realtime</a></li>
+        <li><a class="nav-item" data-target="context">4. React Context &amp; Estado</a></li>
+        <li><a class="nav-item" data-target="routing">5. Rotas com TanStack</a></li>
+        <li><a class="nav-item" data-target="growth">6. Dicas de Carreira</a></li>
+        <li><a class="nav-item" data-target="quiz">7. Quiz do Desenvolvedor</a></li>
+      </ul>
+    </aside>
+
+    <!-- Conteúdo Principal -->
+    <main>
+
+      <!-- 1. VISÃO GERAL -->
+      <section id="overview" class="section-content active">
+        <h2>🌐 Visão Geral da Arquitetura</h2>
+        <p>
+          O <strong>Crazy Hotel</strong> é uma releitura digital do jogo de dedução social <em>"The Resistance"</em> (ou <em>Avalon</em>). O jogo funciona no modelo de <strong>TV-Controller</strong>:
+        </p>
+        <ul>
+          <li><strong>Dono/TV (Host):</strong> Cria a sala e exibe um painel geral na TV ou projetor. A TV exibe o andamento do jogo, placares, votações abertas e o histórico de missões de forma passiva.</li>
+          <li><strong>Jogadores (Clients/Players):</strong> Entram no jogo pelo celular usando o código de 4 letras. Cada um vê na sua tela informações confidenciais (como seu papel secreto) e executa ações ativas (propor equipes, votar ou assassinar).</li>
+        </ul>
+
+        <div class="alert alert-info">
+          <div class="alert-title">🚀 Por que essa arquitetura é moderna?</div>
+          Esta aplicação é <strong>100% Serverless (sem servidor tradicional)</strong>. Toda a comunicação em tempo real, persistência de banco e segurança de regras de negócio é feita combinando o <strong>React (Frontend)</strong> diretamente com os recursos integrados do <strong>Supabase (Backend as a Service)</strong> e <strong>PostgreSQL</strong>.
+        </div>
+
+        <div class="diagram-container">
+          <svg width="600" height="260" viewBox="0 0 600 260" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Background -->
+            <rect width="600" height="260" rx="12" fill="#0c0b0f" />
+            <!-- Client TV -->
+            <rect x="30" y="50" width="130" height="90" rx="8" fill="#1b1722" stroke="#d4af37" stroke-width="2"/>
+            <text x="95" y="90" fill="#f3f4f6" font-family="Outfit" font-size="14" font-weight="700" text-anchor="middle">Host / TV</text>
+            <text x="95" y="110" fill="#8e9094" font-family="Outfit" font-size="10" text-anchor="middle">(Display de Placar)</text>
+            
+            <!-- Clients Mobile -->
+            <rect x="30" y="160" width="130" height="50" rx="6" fill="#1b1722" stroke="#a78bfa" stroke-width="1.5"/>
+            <text x="95" y="185" fill="#f3f4f6" font-family="Outfit" font-size="12" font-weight="600" text-anchor="middle">Jogadores (Móvel)</text>
+            <text x="95" y="200" fill="#8e9094" font-family="Outfit" font-size="9" text-anchor="middle">(Votações / Ações)</text>
+            
+            <!-- arrows -->
+            <!-- Realtime flow -->
+            <path d="M 170 95 L 250 95" stroke="#10b981" stroke-dasharray="4" stroke-width="2" marker-end="url(#arrow-green)"/>
+            <path d="M 250 115 L 170 115" stroke="#10b981" stroke-dasharray="4" stroke-width="2" marker-end="url(#arrow-green)"/>
+            <text x="210" y="85" fill="#10b981" font-family="Outfit" font-size="9" font-weight="600" text-anchor="middle">Sincronização Realtime</text>
+            
+            <!-- Write/RPC flow -->
+            <path d="M 170 185 L 260 185" stroke="#ffd700" stroke-dasharray="4" stroke-width="2" marker-end="url(#arrow-gold)"/>
+            <text x="215" y="175" fill="#ffd700" font-family="Outfit" font-size="9" font-weight="600" text-anchor="middle">Ações &amp; RPCs</text>
+
+            <!-- Supabase -->
+            <rect x="270" y="60" width="150" height="140" rx="10" fill="#141824" stroke="#10b981" stroke-width="2" />
+            <text x="345" y="95" fill="#10b981" font-family="Outfit" font-size="16" font-weight="800" text-anchor="middle">Supabase BaaS</text>
+            <text x="345" y="120" fill="#c5c7ca" font-family="Outfit" font-size="12" text-anchor="middle">Realtime Engine</text>
+            <text x="345" y="140" fill="#c5c7ca" font-family="Outfit" font-size="12" text-anchor="middle">Row Level Security</text>
+            <text x="345" y="165" fill="#ffd700" font-family="Outfit" font-size="11" font-weight="600" text-anchor="middle">&lt; PostgreSQL &gt;</text>
+
+            <!-- Postgres arrows -->
+            <path d="M 430 130 L 490 130" stroke="#ffd700" stroke-width="2" marker-end="url(#arrow-gold)"/>
+
+            <!-- Postgres Table & functions -->
+            <rect x="500" y="80" width="80" height="100" rx="6" fill="#0f0e13" stroke="#ffd700" stroke-width="1.5" />
+            <text x="540" y="115" fill="#f3f4f6" font-family="Outfit" font-size="11" font-weight="700" text-anchor="middle">Postgres</text>
+            <text x="540" y="135" fill="#8e9094" font-family="Outfit" font-size="10" text-anchor="middle">Tabelas Privadas</text>
+            <text x="540" y="155" fill="#8e9094" font-family="Outfit" font-size="10" text-anchor="middle">&amp; Funções RPC</text>
+
+            <!-- Markers definition -->
+            <defs>
+              <marker id="arrow-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <polygon points="0 0, 6 3, 0 6" fill="#10b981" />
+              </marker>
+              <marker id="arrow-gold" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <polygon points="0 0, 6 3, 0 6" fill="#ffd700" />
+              </marker>
+            </defs>
+          </svg>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>💻 O Ecossistema Frontend</h3>
+            <p>
+              Construído sobre o <strong>React 19</strong> (a versão mais recente do framework) e estruturado com <strong>TypeScript</strong> para garantir segurança de tipos durante a escrita de código. O empacotador é o <strong>Vite 8</strong>, garantindo tempos de carregamento instantâneos no desenvolvimento local e builds enxutos em produção.
+            </p>
+          </div>
+          <div class="card">
+            <h3>⚡ A Engrenagem Backend</h3>
+            <p>
+              O <strong>Supabase</strong> foi adotado para evitar a necessidade de criar e gerenciar um servidor Node.js/Python complexo. Ele expõe uma API REST automática direto no banco PostgreSQL, autenticação nativa e o mecanismo de <strong>Realtime</strong> baseado em WebSockets para escuta de notificações de novos registros na base de dados.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. BANCO E SEGURANÇA -->
+      <section id="database" class="section-content">
+        <h2>🗄️ Banco de Dados &amp; Segurança Avançada</h2>
+        <p>
+          Para um desenvolvedor júnior, o maior erro comum é programar toda a lógica do jogo no frontend. Por exemplo: <em>se o jogador quer ver seu papel, o frontend consulta todos os papéis e filtra o dele.</em>
+        </p>
+        <p class="alert alert-danger">
+          <strong>⚠️ Risco de Trapaça:</strong> Se os papéis secretos fossem enviados para o frontend direto em uma tabela pública, qualquer jogador mais técnico poderia simplesmente abrir o <strong>DevTools do Chrome (F12)</strong>, olhar as variáveis de estado do React ou a aba <em>Network</em>, e descobrir o papel secreto de todos antes do início do jogo!
+        </p>
+
+        <h3>O Padrão de Segurança do Crazy Hotel</h3>
+        <p>
+          Para resolver isso, o Crazy Hotel utiliza o conceito de <strong>Tabelas Privadas</strong> no Supabase combinadas com <strong>Security Definer RPCs (Remote Procedure Calls)</strong>.
+        </p>
+
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">SQL</span>
+            <span>schema.sql</span>
+          </div>
+          <pre><code><span class="comment">-- Tabela Pública (Sem papéis secretos, apenas status)</span>
+<span class="keyword">create table</span> players (
+  id uuid primary key <span class="keyword">default</span> gen_random_uuid(),
+  room_id uuid not null <span class="keyword">references</span> rooms(id) on delete cascade,
+  name varchar(100) not null,
+  is_host boolean not null <span class="keyword">default</span> false,
+  team_vote varchar(50), <span class="comment">-- Voto público de proposta de time</span>
+  has_voted_mission boolean not null <span class="keyword">default</span> false, <span class="comment">-- Apenas indica se votou</span>
+  status varchar(50) not null <span class="keyword">default</span> 'CONNECTED'
+);
+
+<span class="comment">-- Tabela Privada (Excluída das políticas de leitura pública!)</span>
+<span class="keyword">create table</span> player_roles (
+  player_id uuid primary key <span class="keyword">references</span> players(id) on delete cascade,
+  role varchar(50) not null <span class="comment">-- 'GUEST', 'THIEF', 'MANAGER' ou 'ASSASSIN'</span>
+);
+<span class="keyword">alter table</span> player_roles enable row level security;
+<span class="comment">-- Note que não criamos NENHUMA política de "SELECT" para player_roles.</span>
+<span class="comment">-- Isso significa que ninguém pode fazer consultas diretas via cliente JavaScript!</span></code></pre>
+        </div>
+
+        <h3>Consultando Dados Seguros via RPC (Remote Procedure Call)</h3>
+        <p>
+          Como o jogador descobre seu próprio papel se ele não tem permissão para ler de <code>player_roles</code>? Através de funções do Postgres escritas em <strong>PL/pgSQL</strong>.
+        </p>
+        <p>
+          Quando o jogador entra no jogo, o backend insere um UUID aleatório chamado de <strong>Secret Token</strong> na tabela privada <code>player_secrets</code> e salva esse token no <code>localStorage</code> do navegador do jogador. Esse token serve como assinatura secreta única do jogador.
+        </p>
+
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">SQL PL/pgSQL</span>
+            <span>get_my_role</span>
+          </div>
+          <pre><code><span class="keyword">create or replace function</span> get_my_role(p_player_id uuid, p_secret_token uuid)
+<span class="keyword">returns</span> text <span class="keyword">as</span> $$
+<span class="keyword">declare</span>
+  v_role text;
+<span class="keyword">begin</span>
+  <span class="comment">-- 1. Verifica se o token secreto de fato confere com o id do jogador</span>
+  <span class="keyword">if not exists</span> (
+    <span class="keyword">select</span> 1 <span class="keyword">from</span> player_secrets 
+    <span class="keyword">where</span> player_id = p_player_id and secret_token = p_secret_token
+  ) <span class="keyword">then</span>
+    <span class="keyword">return</span> null;
+  <span class="keyword">end if;</span>
+
+  <span class="comment">-- 2. Retorna apenas o papel daquele jogador específico</span>
+  <span class="keyword">select</span> role <span class="keyword">into</span> v_role <span class="keyword">from</span> player_roles <span class="keyword">where</span> player_id = p_player_id;
+  <span class="keyword">return</span> v_role;
+<span class="keyword">end;</span>
+$$ <span class="keyword">language</span> plpgsql <span class="keyword">security definer</span>;</code></pre>
+        </div>
+
+        <div class="alert alert-info">
+          <div class="alert-title">💡 Conceito Chave: security definer</div>
+          No Postgres, por padrão, funções rodam com os privilégios do usuário que as chamou (invoker). Como o cliente JavaScript não tem privilégios na tabela privada, a chamada falharia. Ao declarar a função como <strong>security definer</strong>, ela é executada com os privilégios do usuário dono da função (o administrador do banco), contornando as restrições normais com segurança controlada!
+        </div>
+
+        <h3>Garantindo o Anonimato da Missão</h3>
+        <p>
+          No Resistance, os sabotadores votam "Fracasso" de forma ultra-secreta. Se pudéssemos rastrear a ordem dos votos inseridos, saberíamos quem votou contra. A função <code>reveal_mission_votes_secure</code> resolve isso:
+        </p>
+        <ol>
+          <li>Os votos individuais são inseridos em uma tabela privada temporária (<code>mission_votes_secure</code>).</li>
+          <li>Quando a TV chama o revelador, o Postgres seleciona os votos usando <strong><code>ORDER BY random()</code></strong> para embaralhar completamente o array antes de gravá-los na tabela pública <code>rooms</code>.</li>
+          <li>Em seguida, a função apaga os dados da tabela privada para que ninguém nunca saiba qual jogador enviou qual voto.</li>
+        </ol>
+      </section>
+
+      <!-- 3. TEMPO REAL E SINCRONIZAÇÃO -->
+      <section id="realtime" class="section-content">
+        <h2>⚡ Sincronização em Tempo Real</h2>
+        <p>
+          O Crazy Hotel dispensa rotinas periódicas de <em>polling</em> (onde o app fica chamando o servidor a cada 2 segundos perguntando "o estado mudou?"). Em vez disso, ele usa o <strong>Supabase Realtime</strong>, que escuta eventos de banco via WebSocket.
+        </p>
+        <p>
+          No arquivo <a href="file:///c:/Projetos/crazyHotel/src/context/GameContext.tsx" style="color:var(--accent-gold-light); text-decoration:none;">GameContext.tsx</a>, há um hook <code>useEffect</code> que cria canais de escuta automática (channels):
+        </p>
+
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">TypeScript</span>
+            <span>GameContext.tsx</span>
+          </div>
+          <pre><code><span class="comment">// 1. Ouvir alterações em tempo real nas salas</span>
+<span class="keyword">const</span> roomChannel = supabase
+  .channel(<span class="string">`room_changes:${room.id}`</span>)
+  .on(
+    <span class="string">'postgres_changes'</span>,
+    { event: <span class="string">'UPDATE'</span>, schema: <span class="string">'public'</span>, table: <span class="string">'rooms'</span>, filter: <span class="string">`id=eq.${room.id}`</span> },
+    <span class="keyword">async</span> (payload) => {
+      <span class="keyword">const</span> updatedRoom = payload.new <span class="keyword">as</span> Room;
+      setRoom(updatedRoom); <span class="comment">// Atualiza o estado React instantaneamente!</span>
+    }
+  )
+  .subscribe();</code></pre>
+        </div>
+
+        <h3>O Fluxo Bidirecional</h3>
+        <p>
+          Quando um jogador no celular executa uma ação (por exemplo, vota "Aprovar Time"), o React faz um <code>UPDATE</code> simples na tabela <code>players</code> do Supabase.
+        </p>
+        <p>
+          O Supabase detecta a gravação no Postgres e avisa via WebSocket todos os clientes que estão escutando alterações para aquela sala. O hook no frontend da <strong>TV</strong> e dos outros <strong>Jogadores</strong> reage à mensagem atualizando seus estados internos do React, redesenhando a interface no mesmo milissegundo.
+        </p>
+      </section>
+
+      <!-- 4. REACT CONTEXT E ESTADO -->
+      <section id="context" class="section-content">
+        <h2>🧠 React Context como uma Máquina de Estados</h2>
+        <p>
+          O arquivo <a href="file:///c:/Projetos/crazyHotel/src/context/GameContext.tsx" style="color:var(--accent-gold-light); text-decoration:none;">GameContext.tsx</a> é o cérebro da aplicação no cliente. Em vez de passar variáveis e funções por vários componentes usando propriedades (prática chamada de <em>prop-drilling</em>), usamos a <strong>API de Contexto do React</strong> para expor dados a todo o app.
+        </p>
+        <p>
+          O <code>GameContext</code> atua como uma <strong>Máquina de Estados Finita</strong>. Ele gerencia transições limpas baseadas na coluna <code>rooms.state</code>:
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Fases do State Machine</h3>
+            <ul>
+              <li><strong>LOBBY:</strong> Aguardando os 5 a 10 jogadores entrarem.</li>
+              <li><strong>ROLE_ASSIGNMENT:</strong> Papéis distribuídos. Apenas os celulares mostram o papel.</li>
+              <li><strong>TEAM_SELECTION:</strong> O líder escolhe membros para ir à missão.</li>
+              <li><strong>TEAM_VOTE:</strong> Todos votam se aceitam ou rejeitam o time escolhido.</li>
+              <li><strong>MISSION_VOTE:</strong> Integrantes do time votam SUCESSO / FRACASSO em segredo.</li>
+              <li><strong>MISSION_REVEAL:</strong> A TV revela os votos de forma embaralhada.</li>
+              <li><strong>ASSASSIN_CHOICE:</strong> Se os hóspedes vencem 3 vezes, o Assassino pode tentar atirar no Gerente.</li>
+              <li><strong>GAME_OVER:</strong> Exibe vencedor e papéis.</li>
+            </ul>
+          </div>
+          <div class="card">
+            <h3>Ações Centralizadas</h3>
+            <p>
+              Toda a lógica está encapsulada em funções assíncronas simples dentro do Provider, facilitando o desenvolvimento das telas visuais. Funções expostas incluem:
+            </p>
+            <ul>
+              <li><code>createRoom()</code></li>
+              <li><code>joinRoom()</code></li>
+              <li><code>startGame()</code></li>
+              <li><code>proposeTeam()</code></li>
+              <li><code>submitTeamVote()</code></li>
+              <li><code>submitMissionVote()</code></li>
+              <li><code>executeAssassination()</code></li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. ROTAS COM TANSTACK ROUTER -->
+      <section id="routing" class="section-content">
+        <h2>🛣️ Roteamento Tipado com TanStack Router</h2>
+        <p>
+          Muitos desenvolvedores juniores usam o clássico <em>react-router-dom</em>. No entanto, o Crazy Hotel optou por utilizar o moderno <strong>TanStack Router</strong>.
+        </p>
+        <h3>Qual a vantagem?</h3>
+        <p>
+          O TanStack Router garante <strong>segurança de tipos (type safety) nas rotas</strong> em tempo de compilação. Se você tentar redirecionar o usuário para uma rota que não existe ou esquecer de passar parâmetros obrigatórios (como o <code>roomCode</code>), o TypeScript emitirá um erro antes de você subir o código para produção!
+        </p>
+
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">TypeScript</span>
+            <span>routes.tsx</span>
+          </div>
+          <pre><code><span class="comment">// Definição de rotas do projeto</span>
+<span class="keyword">const</span> rootRoute = createRootRoute({
+  component: () => (
+    &lt;<span class="type">div</span> className="app-container"&gt;
+      &lt;<span class="type">Outlet</span> /&gt;
+    &lt;/<span class="type">div</span>&gt;
+  ),
+});
+
+<span class="keyword">const</span> hostRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: <span class="string">'/host/$roomCode'</span>, <span class="comment">// $roomCode é um parâmetro dinâmico</span>
+  component: HostRoom,
+});
+
+<span class="keyword">const</span> playRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: <span class="string">'/play/$roomCode'</span>,
+  component: PlayRoom,
+});</code></pre>
+        </div>
+
+        <p>
+          Para obter o código da sala de forma segura dentro da página de jogo, basta usar o hook tipado:
+        </p>
+        <div class="code-container">
+          <div class="code-header">
+            <span class="code-lang">TypeScript</span>
+            <span>play.$roomCode.tsx</span>
+          </div>
+          <pre><code><span class="keyword">const</span> { roomCode } = useParams({ from: <span class="string">'/play/$roomCode'</span> });</code></pre>
+        </div>
+      </section>
+
+      <!-- 6. DICAS DE CARREIRA -->
+      <section id="growth" class="section-content">
+        <h2>🚀 Dicas para Crescimento Profissional (Júnior a Pleno)</h2>
+        <p>
+          Se você quer se destacar no mercado, analisar este projeto traz aprendizados incríveis. Aqui estão <strong>três padrões avançados</strong> usados no Crazy Hotel para você estudar e citar em entrevistas de emprego:
+        </p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>1. Keepalive Beacon API</h3>
+            <p>
+              Quando um jogador fecha a aba do navegador no meio do jogo, como o banco de dados sabe que ele saiu se a conexão React foi destruída?
+            </p>
+            <p>
+              O Crazy Hotel resolve isso com o evento <strong><code>beforeunload</code></strong> e um fetch especial usando a flag <strong><code>keepalive: true</code></strong>. Isso garante que a requisição de desconexão seja enviada pelo navegador em segundo plano, mesmo que a página já tenha sido fechada!
+            </p>
+          </div>
+          <div class="card">
+            <h3>2. Lógica Baseada em Transação (Atomicidade)</h3>
+            <p>
+              Evitar condições de corrida (quando duas requisições tentam alterar o mesmo dado ao mesmo tempo) é um diferencial técnico.
+            </p>
+            <p>
+              Em vez de puxar os dados do banco, somá-los no React e salvar de volta, o código usa a RPC <code>append_mission_vote</code> para executar a gravação do voto de forma atômica no Postgres. Isso garante integridade absoluta das contagens!
+            </p>
+          </div>
+        </div>
+
+        <div class="alert alert-info">
+          <div class="alert-title">🎯 Conselho de Carreira</div>
+          Aprenda a explicar <strong>as justificativas das suas escolhas arquiteturais</strong>. Dizer que usou Supabase porque ele providencia RLS integrada e segurança de visualização de papéis (evitando vazamentos no client) impressiona muito mais qualquer recrutador sênior do que apenas dizer "fiz porque é mais fácil".
+        </div>
+      </section>
+
+      <!-- 7. QUIZ -->
+      <section id="quiz" class="section-content">
+        <h2>🎮 Desafio do Desenvolvedor</h2>
+        <p>
+          Teste os conhecimentos técnicos que você aprendeu com esse guia. Responda às perguntas abaixo para ver se você está pronto para subir de nível técnico!
+        </p>
+
+        <div class="quiz-card">
+          <div id="quiz-question-container">
+            <div class="quiz-question" id="quiz-question">Carregando pergunta...</div>
+            <div class="quiz-options" id="quiz-options">
+              <!-- Options loaded by JavaScript -->
+            </div>
+            <div class="quiz-feedback" id="quiz-feedback">
+              Feedback...
+            </div>
+            <button class="btn-quiz-next" id="btn-next" style="display:none;" onclick="nextQuestion()">
+              Avançar &rarr;
+            </button>
+            <div style="clear:both;"></div>
+          </div>
+
+          <div class="quiz-score-container" id="quiz-score-container">
+            <h3>Desafio Concluído!</h3>
+            <div class="quiz-score-num" id="quiz-score-num">0 / 0</div>
+            <p id="quiz-score-msg">Excelente esforço!</p>
+            <button class="btn-restart-quiz" onclick="restartQuiz()">Fazer o Quiz Novamente</button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer>
+    <p>Crazy Hotel &copy; 2026 - Guia interativo projetado para o seu crescimento profissional.</p>
+  </footer>
+
+  <script>
+    // Tab switching logic
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', function(e) {
+        e.preventDefault();
+        
+        // Remove active class from other items
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        document.querySelectorAll('.section-content').forEach(s => s.classList.remove('active'));
+        
+        // Add active class to clicked item
+        this.classList.add('active');
+        
+        // Show selected section
+        const targetId = this.getAttribute('data-target');
+        const targetSection = document.getElementById(targetId);
+        targetSection.classList.add('active');
+        
+        // Reset sidebar scroll on mobile if needed
+        if(window.innerWidth <= 992) {
+          window.scrollTo({
+            top: targetSection.offsetTop - 20,
+            behavior: 'smooth'
+          });
+        }
+      });
+    });
+
+    // Quiz Questions Data
+    const quizQuestions = [
+      {
+        question: "Por que os papéis dos jogadores são salvos na tabela privada 'player_roles' sem políticas de SELECT público?",
+        options: [
+          "Para economizar espaço de armazenamento e deixar o banco de dados Supabase mais rápido.",
+          "Para evitar trapaças (cheating), impedindo que qualquer jogador consulte a tabela via console DevTools e descubra os segredos dos outros.",
+          "Porque o Supabase exige que todas as tabelas com nomes de regras de jogo sejam privadas por padrão."
+        ],
+        correct: 1,
+        feedback: "Exatamente! Qualquer dado sensível enviado ao frontend pode ser inspecionado. Ao remover a política de SELECT público da tabela 'player_roles', impedimos o acesso direto da API cliente."
+      },
+      {
+        question: "Qual é o objetivo prático de definir uma função PostgreSQL como 'SECURITY DEFINER'?",
+        options: [
+          "Fazer com que a função execute sempre com os privilégios do usuário administrador (dono) do banco, contornando restrições normais de tabelas privadas com segurança.",
+          "Melhorar a performance de consultas SQL no frontend adicionando criptografia de ponta a ponta.",
+          "Garantir que os logs de segurança mostrem apenas o endereço IP do servidor ao invés do usuário."
+        ],
+        correct: 0,
+        feedback: "Isso mesmo! 'SECURITY DEFINER' roda a função com as permissões do usuário criador (normalmente o administrador do banco), permitindo consultas controladas a tabelas privadas por usuários que não teriam acesso a elas diretamente."
+      },
+      {
+        question: "Como o Crazy Hotel realiza o embaralhamento e anonimato dos votos de missão de forma 100% segura no banco?",
+        options: [
+          "O frontend baixa os votos, usa um script Javascript com Math.random() e envia de volta para a TV pública.",
+          "Os votos são armazenados em uma tabela pública com RLS e apagados manualmente pelo Host pelo painel de controle.",
+          "Os votos são inseridos na tabela privada temporária e extraídos usando 'ORDER BY random()' pelo banco antes de serem gravados na tabela de salas pública e limpos."
+        ],
+        correct: 2,
+        feedback: "Correto! Embaralhar no banco de dados usando ORDER BY random() e depois apagar os dados da tabela temporária garante que a ordem de inserção original não possa ser associada a nenhum jogador."
+      },
+      {
+        question: "Por que foi utilizado o parâmetro 'keepalive: true' no evento 'beforeunload' do navegador?",
+        options: [
+          "Para manter o WebSocket ativo no celular do jogador mesmo quando ele entra em modo de suspensão (sleep).",
+          "Para garantir que a requisição POST/PATCH de desconexão seja enviada ao banco mesmo se o usuário fechar a página ou aba instantaneamente.",
+          "Para fazer a tela do celular vibrar quando o time selecionado for aprovado."
+        ],
+        correct: 1,
+        feedback: "Exatamente! Sem a flag keepalive, as requisições AJAX normais (via axios/fetch) são canceladas imediatamente no descarregamento da página, impedindo que o status mude para DISCONNECTED no banco."
+      },
+      {
+        question: "Qual é a principal vantagem de usar o TanStack Router em comparação com o tradicional react-router-dom?",
+        options: [
+          "Garante 'Type Safety' (segurança de tipos) estrita nas rotas e seus parâmetros dinâmicos em tempo de compilação.",
+          "O TanStack Router carrega os arquivos CSS automaticamente sem precisar de imports adicionais.",
+          "Ele elimina a necessidade de usar componentes na criação do layout principal."
+        ],
+        correct: 0,
+        feedback: "Exato! Com rotas tipadas estritamente, qualquer parâmetro dinâmico ou rota inválida gera erro em tempo de desenvolvimento, eliminando bugs de navegação silenciosos em produção."
+      }
+    ];
+
+    let currentQuestionIdx = 0;
+    let score = 0;
+    let quizAnswered = false;
+
+    function loadQuestion() {
+      quizAnswered = false;
+      const questionData = quizQuestions[currentQuestionIdx];
+      
+      document.getElementById('quiz-question').innerText = `Questão ${currentQuestionIdx + 1}: ${questionData.question}`;
+      
+      const optionsContainer = document.getElementById('quiz-options');
+      optionsContainer.innerHTML = '';
+      
+      questionData.options.forEach((optionText, idx) => {
+        const button = document.createElement('button');
+        button.className = 'quiz-option';
+        button.innerText = optionText;
+        button.onclick = () => selectOption(idx);
+        optionsContainer.appendChild(button);
+      });
+
+      document.getElementById('quiz-feedback').className = 'quiz-feedback';
+      document.getElementById('btn-next').style.display = 'none';
+    }
+
+    function selectOption(selectedIndex) {
+      if (quizAnswered) return;
+      quizAnswered = true;
+      
+      const questionData = quizQuestions[currentQuestionIdx];
+      const options = document.getElementById('quiz-options').children;
+      
+      if (selectedIndex === questionData.correct) {
+        options[selectedIndex].classList.add('correct');
+        score++;
+      } else {
+        options[selectedIndex].classList.add('incorrect');
+        options[questionData.correct].classList.add('correct');
+      }
+
+      // Show feedback
+      const feedbackEl = document.getElementById('quiz-feedback');
+      feedbackEl.className = 'quiz-feedback show';
+      feedbackEl.innerHTML = `<strong>${selectedIndex === questionData.correct ? '🏆 Resposta Correta!' : '❌ Ops, não foi dessa vez.'}</strong><br>${questionData.feedback}`;
+      
+      document.getElementById('btn-next').style.display = 'inline-flex';
+    }
+
+    function nextQuestion() {
+      currentQuestionIdx++;
+      if (currentQuestionIdx < quizQuestions.length) {
+        loadQuestion();
+      } else {
+        showResults();
+      }
+    }
+
+    function showResults() {
+      document.getElementById('quiz-question-container').style.display = 'none';
+      const scoreContainer = document.getElementById('quiz-score-container');
+      scoreContainer.style.display = 'block';
+      
+      document.getElementById('quiz-score-num').innerText = `${score} / ${quizQuestions.length}`;
+      
+      let message = "";
+      if (score === quizQuestions.length) {
+        message = "👑 Perfeito! Você demonstrou conhecimentos sólidos de nível Pleno/Sênior sobre arquitetura serverless e segurança no Postgres.";
+      } else if (score >= 3) {
+        message = "⚡ Muito bom! Você já domina a maior parte dos conceitos técnicos deste projeto e está no caminho certo para evoluir profissionalmente.";
+      } else {
+        message = "📚 Vale a pena revisar as seções de Segurança Avançada e Sincronização Realtime para fixar os conceitos.";
+      }
+      
+      document.getElementById('quiz-score-msg').innerText = message;
+    }
+
+    function restartQuiz() {
+      currentQuestionIdx = 0;
+      score = 0;
+      document.getElementById('quiz-score-container').style.display = 'none';
+      document.getElementById('quiz-question-container').style.display = 'block';
+      loadQuestion();
+    }
+
+    // Initialize Quiz
+    loadQuestion();
+  </script>
+
+</body>
+</html>

@@ -121,7 +121,7 @@ export default function Home() {
               <Button onClick={handleReconnect} style={{ flex: 2 }}>
                 Reconectar à Sala
               </Button>
-              <Button onClick={handleAbandonSession} variant="secondary" style={{ flex: 1, border: '1px solid rgba(244, 63, 94, 0.4)', color: 'var(--color-thief)' }}>
+              <Button onClick={handleAbandonSession} variant="secondary" style={{ flex: 1, border: '1px solid rgba(var(--color-thief-rgb), 0.4)', color: 'var(--color-thief)' }}>
                 Abandonar
               </Button>
             </div>
@@ -159,8 +159,8 @@ export default function Home() {
 
             {(validationError || gameError) && (
               <div style={{
-                background: 'rgba(244, 63, 94, 0.1)',
-                border: '1px solid rgba(244, 63, 94, 0.3)',
+                background: 'rgba(var(--color-thief-rgb), 0.1)',
+                border: '1px solid rgba(var(--color-thief-rgb), 0.3)',
                 color: 'var(--color-thief)',
                 padding: '0.75rem',
                 borderRadius: '0.5rem',

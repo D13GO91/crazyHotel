@@ -197,7 +197,7 @@ export default function HostRoom() {
                   
                   if (roundHistory) {
                     const wasSuccess = roundHistory.result === 'SUCCESS';
-                    circleBg = wasSuccess ? 'rgba(16, 185, 129, 0.2)' : 'rgba(244, 63, 94, 0.2)';
+                    circleBg = wasSuccess ? 'rgba(var(--color-guest-rgb), 0.2)' : 'rgba(var(--color-thief-rgb), 0.2)';
                     circleBorder = `2px solid ${wasSuccess ? 'var(--color-guest)' : 'var(--color-thief)'}`;
                     circleShadow = `0 0 15px ${wasSuccess ? 'var(--color-guest-glow)' : 'var(--color-thief-glow)'}`;
                     textHex = wasSuccess ? 'var(--color-guest)' : 'var(--color-thief)';
@@ -226,7 +226,7 @@ export default function HostRoom() {
                         <span style={{ fontSize: '1.1rem', fontWeight: 800, color: textHex }}>{size}p</span>
                       </div>
                       {doubleFail && (
-                        <span style={{ fontSize: '0.7rem', color: 'var(--color-thief)', fontWeight: 'bold', background: 'rgba(244, 63, 94, 0.1)', padding: '0.05rem 0.35rem', borderRadius: '0.25rem' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--color-thief)', fontWeight: 'bold', background: 'rgba(var(--color-thief-rgb), 0.1)', padding: '0.05rem 0.35rem', borderRadius: '0.25rem' }}>
                           Requer 2x ✗
                         </span>
                       )}
@@ -279,7 +279,7 @@ export default function HostRoom() {
                     key={player.id} 
                     className="glass-panel host-lobby-players-card animate-float" 
                     style={{ 
-                      borderColor: player.status === 'CONNECTED' ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(239, 68, 68, 0.2)'
+                      borderColor: player.status === 'CONNECTED' ? 'rgba(var(--accent-rgb), 0.2)' : 'rgba(var(--color-thief-rgb), 0.2)'
                     }}
                   >
                     <div style={{ width: '40px', height: '40px', background: 'rgba(var(--accent-rgb), 0.1)', border: '1px solid var(--accent)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '1.1rem', color: '#fff' }}>
@@ -417,7 +417,7 @@ export default function HostRoom() {
                           alignItems: 'center', 
                           gap: '0.4rem', 
                           borderColor: voted ? 'var(--color-guest)' : 'rgba(255,255,255,0.06)',
-                          background: voted ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-glass)'
+                          background: voted ? 'rgba(var(--color-guest-rgb), 0.05)' : 'var(--bg-glass)'
                         }}
                       >
                         <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>{player.name}</span>
@@ -487,7 +487,7 @@ export default function HostRoom() {
                       style={{ 
                         padding: '1rem 2rem', 
                         borderColor: voted ? 'var(--color-guest)' : 'var(--accent-light)',
-                        background: voted ? 'rgba(16, 185, 129, 0.05)' : 'var(--bg-glass)',
+                        background: voted ? 'rgba(var(--color-guest-rgb), 0.05)' : 'var(--bg-glass)',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
@@ -605,7 +605,7 @@ export default function HostRoom() {
 
           {room.state === 'ASSASSIN_CHOICE' && (
             <GlassPanel className="host-panel" style={{ padding: '3rem 2rem', textAlign: 'center' }}>
-              <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(244, 63, 94, 0.08)', borderRadius: '50%', marginBottom: '1.5rem', border: '1px solid rgba(244, 63, 94, 0.15)', animation: 'pulse 2s infinite' }}>
+              <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(var(--color-thief-rgb), 0.08)', borderRadius: '50%', marginBottom: '1.5rem', border: '1px solid rgba(var(--color-thief-rgb), 0.15)', animation: 'pulse 2s infinite' }}>
                 <ShieldAlert size={48} style={{ color: 'var(--color-thief)' }} />
               </div>
               <span style={{ fontSize: '0.9rem', color: 'var(--color-thief)', letterSpacing: '0.3em', fontWeight: 700, display: 'block', textShadow: '0 0 10px var(--color-thief-glow)' }}>VEREDITO FINAL</span>
