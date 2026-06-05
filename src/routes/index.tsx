@@ -90,12 +90,13 @@ export default function Home() {
     <div className="home-container animate-float" style={{ padding: '2rem 1rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
         <img 
-          src="/logo.png" 
+          src="/logo.jpg" 
           alt="Crazy Hotel Logo" 
           style={{ 
             width: '100%', 
             maxWidth: '240px', 
-            marginBottom: '0.75rem'
+            marginBottom: '0.75rem',
+            mixBlendMode: 'multiply'
           }} 
         />
         <p style={{ fontSize: '1.125rem' }}>Um jogo de intriga, sabotagem e dedução social.</p>
